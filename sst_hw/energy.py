@@ -14,8 +14,11 @@ import numpy as np
 import xarray as xr
 from bl_funcs.printing import boxed_text, colored
 from bl_base.motors import PrettyMotorFMBO
+from bl_base.mirrors import FMBHexapodMirrorAxisStandAlonePitch
 from sst_hw.shutters import psh4
 from sst_hw.motors import grating, mirror2
+from sst_hw.mirrors import mir3
+
 
 
 class UndulatorMotor(EpicsMotor):
@@ -64,8 +67,12 @@ class Monochromator(PVPositioner):
         kind="normal",
         auto_monitor=True,
     )
-    gratingx = Cpt(PrettyMotorFMBO, "GrtX}Mtr", name="Mono Grating X motor", kind="normal")
-    mirror2x = Cpt(PrettyMotorFMBO, "MirX}Mtr", name="Mono Mirror X motor", kind="normal")
+    gratingx = Cpt(
+        PrettyMotorFMBO, "GrtX}Mtr", name="Mono Grating X motor", kind="normal"
+    )
+    mirror2x = Cpt(
+        PrettyMotorFMBO, "MirX}Mtr", name="Mono Mirror X motor", kind="normal"
+    )
 
     done = Cpt(EpicsSignalRO, ":ERDY_STS")
     done_value = 1
@@ -132,6 +139,12 @@ class EnPos(PseudoPositioner):
         kind="normal",
         name="EPU Phase",
     )
+    mir3Pitch = Cpt(
+        FMBHexapodMirrorAxisStandAlonePitch,
+        "XF:07ID1-OP{Mir:M3ABC",
+        kind="normal",
+        name="M3Pitch",
+    )
     # epumode = Cpt(EpicsSignal,'SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode-SP',
     #                       name='EPU Mode', kind='normal')
 
@@ -145,7 +158,7 @@ class EnPos(PseudoPositioner):
             epugap=self.gap(pseudo_pos.energy, pseudo_pos.polarization),
             monoen=pseudo_pos.energy,
             epuphase=abs(self.phase(pseudo_pos.energy, pseudo_pos.polarization)),
-            # epumode=self.mode(pseudo_pos.polarization)
+            mir3Pitch=self.m3pitchcalc(pseudo_pos.energy)
         )
         # print('finished forward')
         return ret
@@ -287,7 +300,7 @@ class EnPos(PseudoPositioner):
 
     # end class methods, begin internal methods
 
-    # begin LUT functions
+    # begin LUT Functions
 
     def __init__(
         self,
@@ -330,6 +343,7 @@ class EnPos(PseudoPositioner):
     ):
         if (energy > en_cutoff and harmonic != "1") or harmonic == "3":
             energy = energy / 3
+            
         if (pol == -1) and 105 < energy < 1200:
             phase = 15000
             #g250_gap = float(self.C250_gap.interp(Energies=energy))
@@ -414,6 +428,8 @@ class EnPos(PseudoPositioner):
 
     def phase(self, en, pol):
         if pol == -1:
+            return 15000
+        elif pol == -0.5:
             return 15000
         elif 90 < pol <= 180:
             return -min(
@@ -507,12 +523,13 @@ def base_grating_to_250(mono_en, en):
     yield from bps.abs_set(mono_en.gratingtype, 2, wait=False)
     yield from bps.abs_set(mono_en.gratingtype_proc, 1, wait=True)
     yield from bps.sleep(60)
-    yield from bps.mv(mirror2.user_offset, 0.0315)
-    yield from bps.mv(grating.user_offset, -0.0959)
+    yield from bps.mv(mirror2.user_offset, 0.04) #0.0315)
+    yield from bps.mv(grating.user_offset, -0.0874)#-0.0959)
     yield from bps.mv(mono_en.cff, 1.385)
     yield from bps.mv(en, 270)
     yield from psh4.open()
     print("the grating is now at 250 l/mm")
+    return 1
 
 
 def base_grating_to_1200(mono_en, en):
@@ -525,12 +542,14 @@ def base_grating_to_1200(mono_en, en):
     yield from bps.abs_set(mono_en.gratingtype, 9, wait=False)
     yield from bps.abs_set(mono_en.gratingtype_proc, 1, wait=True)
     yield from bps.sleep(60)
-    yield from bps.mv(mirror2.user_offset, 0.1745)  # 8.1264)
-    yield from bps.mv(grating.user_offset, 0.047)  # 7.2964)  # 7.2948)#7.2956
+    yield from bps.mv(mirror2.user_offset, 0.2044) #0.1962) #0.2052) # 0.1745)  # 8.1264)
+    yield from bps.mv(grating.user_offset, 0.0769) #0.0687) # 0.0777) # 0.047)  # 7.2964)  # 7.2948)#7.2956
     yield from bps.mv(mono_en.cff, 1.7)
+
     yield from bps.mv(en, 270)
     yield from psh4.open()
     print("the grating is now at 1200 l/mm")
+    return 1
 
 
 def epugap_from_en_pol(energy, polarization):
@@ -872,12 +891,15 @@ def epugap_from_en_pol(energy, polarization):
     return gap
 
 
-Mono_Scan_Start_ev = EpicsSignal("XF:07ID1-OP{Mono:PGM1-Ax::EVSTART_SP",
-                                 name="MONO scan start energy", kind="normal")
-Mono_Scan_Stop_ev = EpicsSignal("XF:07ID1-OP{Mono:PGM1-Ax::EVSTOP_SP",
-                                name="MONO scan stop energy", kind="normal")
-Mono_Scan_Speed_ev = EpicsSignal("XF:07ID1-OP{Mono:PGM1-Ax::EVVELO_SP",
-                                 name="MONO scan speed", kind="normal")
+Mono_Scan_Start_ev = EpicsSignal(
+    "XF:07ID1-OP{Mono:PGM1-Ax::EVSTART_SP", name="MONO scan start energy", kind="normal"
+)
+Mono_Scan_Stop_ev = EpicsSignal(
+    "XF:07ID1-OP{Mono:PGM1-Ax::EVSTOP_SP", name="MONO scan stop energy", kind="normal"
+)
+Mono_Scan_Speed_ev = EpicsSignal(
+    "XF:07ID1-OP{Mono:PGM1-Ax::EVVELO_SP", name="MONO scan speed", kind="normal"
+)
 Mono_Scan_Start = EpicsSignal(
     "XF:07ID1-OP{Mono:PGM1-Ax::START_CMD.PROC",
     name="MONO scan start command",
