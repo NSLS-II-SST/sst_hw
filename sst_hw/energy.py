@@ -5,6 +5,7 @@ from ophyd import (
     PseudoSingle,
     EpicsMotor,
     EpicsSignal,
+    PVPositionerPC
 )
 from ophyd import Component as Cpt
 import bluesky.plan_stubs as bps
@@ -27,9 +28,9 @@ class UndulatorMotor(EpicsMotor):
     done_value = 0
 
 
-epu_mode = EpicsSignal(
-    "SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode-SP", name="EPU 60 Mode", kind="normal"
-)
+class EpuMode(PVPositionerPC):
+    setpoint = Cpt(EpicsSignal,"-SP", kind="normal")
+    readback = Cpt(EpicsSignal,"-RB", kind="normal")
 
 
 class Monochromator(PVPositioner):
@@ -145,8 +146,9 @@ class EnPos(PseudoPositioner):
         kind="normal",
         name="M3Pitch",
     )
-    # epumode = Cpt(EpicsSignal,'SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode-SP',
-    #                       name='EPU Mode', kind='normal')
+
+    epumode = Cpt(EpuMode,'SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode',
+                  name='EPU Mode', kind='normal')
 
     rotation_motor = None
 
@@ -158,7 +160,8 @@ class EnPos(PseudoPositioner):
             epugap=self.gap(pseudo_pos.energy, pseudo_pos.polarization),
             monoen=pseudo_pos.energy,
             epuphase=abs(self.phase(pseudo_pos.energy, pseudo_pos.polarization)),
-            mir3Pitch=self.m3pitchcalc(pseudo_pos.energy)
+            mir3Pitch=self.m3pitchcalc(pseudo_pos.energy),
+            epumode=self.mode(pseudo_pos.polarization)
         )
         # print('finished forward')
         return ret
@@ -169,9 +172,9 @@ class EnPos(PseudoPositioner):
         # print('in Inverse')
         ret = self.PseudoPosition(
             energy=real_pos.monoen,
-            polarization=self.pol(real_pos.epuphase, epu_mode.get()),
+            polarization=self.pol(real_pos.epuphase, real_pos.epumode),
             sample_polarization=self.sample_pol(
-                self.pol(real_pos.epuphase, epu_mode.get())
+                self.pol(real_pos.epuphase, real_pos.epumode)
             ),
         )
         # print('Finished inverse')
@@ -185,8 +188,8 @@ class EnPos(PseudoPositioner):
             "\nEPU Gap Readback : {}"
             "\nEPU Phase Setpoint : {}"
             "\nEPU Phase Readback : {}"
-            "\nEPU Mode Setpoint : {}"
-            "\nEPU Mode Readback : {}"
+            #"\nEPU Mode Setpoint : {}"
+            #"\nEPU Mode Readback : {}"
             "\nGrating Setpoint : {}"
             "\nGrating Readback : {}"
             "\nMirror2 Setpoint : {}"
@@ -226,18 +229,18 @@ class EnPos(PseudoPositioner):
                 .rstrip("."),
                 "yellow",
             ),
-            colored(
-                "{:.2f}".format(self.epumode.user_setpoint.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.epumode.user_readback.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
+            #colored(
+            #    "{:.2f}".format(self.epumode.user_setpoint.get())
+            #    .rstrip("0")
+            #    .rstrip("."),
+            #    "yellow",
+            #),
+            #colored(
+            #    "{:.2f}".format(self.epumode.user_readback.get())
+            #    .rstrip("0")
+            #    .rstrip("."),
+            #    "yellow",
+            #),
             colored(
                 "{:.2f}".format(self.monoen.grating.user_setpoint.get())
                 .rstrip("0")
