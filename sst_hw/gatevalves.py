@@ -1,4 +1,4 @@
-from bl_base.shutters import EPS_Shutter
+from sst_base.shutters import EPS_Shutter
 
 gv14 = EPS_Shutter(
     "XF:07IDA-VA:2{FS:6-GV:1}", name="Pre Mono Gate Valve", kind="hinted"

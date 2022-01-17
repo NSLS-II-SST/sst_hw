@@ -1,5 +1,5 @@
 from ophyd import EpicsSignal
-from bl_base.mirrors import HexapodMirror, FMBHexapodMirror
+from sst_base.mirrors import HexapodMirror, FMBHexapodMirror
 
 mir2_type = EpicsSignal(
     "XF:07ID1-OP{Mono:PGM1-Ax:MirX}Mtr_TYPE_MON", name="SST 1 Mirror 2 Stripe"

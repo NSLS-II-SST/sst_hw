@@ -1,4 +1,4 @@
-from bl_base.shutters import EPS_Shutter
+from sst_base.shutters import EPS_Shutter
 
 psh1 = EPS_Shutter("XF:07ID-PPS{Sh:FE}", name="Front-End Shutter",
                    kind="hinted")

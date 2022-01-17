@@ -1,4 +1,4 @@
-from bl_base.motors import PrettyMotorFMBO
+from sst_base.motors import PrettyMotorFMBO
 
 
 Exit_Slit = PrettyMotorFMBO(
