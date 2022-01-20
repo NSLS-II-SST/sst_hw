@@ -4,7 +4,7 @@ from ophyd import Component as Cpt
 
 
 class MultiMesh(Manipulator1AxBase):
-    x = Cpt(PrettyMotorFMBO, "i0upmmesh}Mtr", name="Multimesh")
+    x = Cpt(PrettyMotorFMBO, "Mmesh}Mtr", name="Multimesh")
 
 
-multimesh = MultiMesh(None, "XF:07ID1-BI{UCAL-Ax:", name="i0upmultimesh")
+multimesh = MultiMesh(None, "XF:07ID1-BI{I0Up-Ax:", name="i0upmultimesh")
