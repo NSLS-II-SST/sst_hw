@@ -14,23 +14,22 @@ import pathlib
 import numpy as np
 import xarray as xr
 from sst_funcs.printing import boxed_text, colored
-from sst_base.motors import PrettyMotorFMBO
+from sst_base.motors import PrettyMotorFMBO, DeadbandEpicsMotor
 from sst_base.mirrors import FMBHexapodMirrorAxisStandAlonePitch
 from sst_hw.shutters import psh4
 from sst_hw.motors import grating, mirror2
 from sst_hw.mirrors import mir3
 
 
-
-class UndulatorMotor(EpicsMotor):
+class UndulatorMotor(DeadbandEpicsMotor):
     user_setpoint = Cpt(EpicsSignal, "-SP", limits=True)
     done = Cpt(EpicsSignalRO, ".MOVN")
     done_value = 0
 
 
 class EpuMode(PVPositionerPC):
-    setpoint = Cpt(EpicsSignal,"-SP", kind="normal")
-    readback = Cpt(EpicsSignal,"-RB", kind="normal")
+    setpoint = Cpt(EpicsSignal, "-SP", kind="normal")
+    readback = Cpt(EpicsSignal, "-RB", kind="normal")
 
 
 class Monochromator(PVPositioner):
@@ -312,7 +311,6 @@ class EnPos(PseudoPositioner):
         configpath=pathlib.Path(__file__).parent.absolute() / "config",
         **kwargs,
     ):
-        super().__init__(a, **kwargs)
         self.C250_gap = xr.load_dataarray(configpath / "EPU_C_250_gap.nc")
         self.C250_intens = xr.load_dataarray(configpath / "EPU_C_250_intens.nc")
         self.C1200_gap = xr.load_dataarray(configpath / "EPU_C_1200_gap.nc")
@@ -334,6 +332,8 @@ class EnPos(PseudoPositioner):
             dims={"phase"},
         )
         self.rotation_motor = rotation_motor
+        self.epugap.tolerance.set(3)
+        super().__init__(a, **kwargs)
 
     def gap(
         self,
