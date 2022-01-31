@@ -5,8 +5,9 @@ from ophyd import (
     PseudoSingle,
     EpicsMotor,
     EpicsSignal,
-    PVPositionerPC
-)
+    PVPositionerPC,
+    SoftPositioner
+    Signal)
 from ophyd import Component as Cpt
 import bluesky.plan_stubs as bps
 from ophyd.pseudopos import pseudo_position_argument, real_position_argument
@@ -20,6 +21,8 @@ from sst_hw.shutters import psh4
 from sst_hw.motors import grating, mirror2
 from sst_hw.mirrors import mir3
 
+##############################################################################################
+
 
 class UndulatorMotor(DeadbandEpicsMotor):
     user_setpoint = Cpt(EpicsSignal, "-SP", limits=True)
@@ -28,52 +31,41 @@ class UndulatorMotor(DeadbandEpicsMotor):
 
 
 class EpuMode(PVPositionerPC):
-    setpoint = Cpt(EpicsSignal, "-SP", kind="normal")
-    readback = Cpt(EpicsSignal, "-RB", kind="normal")
+    setpoint = Cpt(EpicsSignal,"-SP", kind="normal")
+    readback = Cpt(EpicsSignal,"-RB", kind="normal")
 
+
+#epu_mode = EpicsSignal(
+#    "SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode-SP", name="EPU 60 Mode", kind="normal"
+#)
+class FMB_Mono_Grating_Type(PVPositioner):
+    setpoint = Cpt(EpicsSignal,'_TYPE_SP',string=True)
+    readback = Cpt(EpicsSignal,'_TYPE_MON',string=True)
+    actuate = Cpt(EpicsSignal,'_DCPL_CALC.PROC')
+    enable = Cpt(EpicsSignal,'_ENA_CMD.PROC')
+    kill = Cpt(EpicsSignal,'_KILL_CMD.PROC')
+    home = Cpt(EpicsSignal,'_HOME_CMD.PROC')
+    clear_encoder_loss = Cpt(EpicsSignal,'_ENC_LSS_CLR_CMD.PROC')
+    done = Cpt(EpicsSignal,'_AXIS_STS')
 
 class Monochromator(PVPositioner):
     setpoint = Cpt(EpicsSignal, ":ENERGY_SP", kind="normal")
-    # value = Cpt(EpicsSignalRO, ':ENERGY_MON',kind='hinted')
     readback = Cpt(EpicsSignalRO, ":ENERGY_MON", kind="hinted")
 
     grating = Cpt(PrettyMotorFMBO, "GrtP}Mtr", name="Mono Grating", kind="normal")
     mirror2 = Cpt(PrettyMotorFMBO, "MirP}Mtr", name="Mono Mirror", kind="normal")
     cff = Cpt(EpicsSignal, ":CFF_SP", name="Mono CFF", kind="normal", auto_monitor=True)
-    vls = Cpt(
-        EpicsSignal, ":VLS_B2.A", name="Mono CFF", kind="normal", auto_monitor=True
-    )
-    gratingtype = Cpt(
-        EpicsSignal,
-        "GrtX}Mtr_TYPE_MON",
-        string=True,
-        write_pv="GrtX}Mtr_TYPE_SP",
-        name="Mono Grating Type",
-        kind="normal",
-        auto_monitor=True,
-    )
+    vls = Cpt(EpicsSignal, ":VLS_B2.A", name="Mono VLS", kind="normal", auto_monitor=True)
+    gratingx = Cpt(FMB_Mono_Grating_Type,"GrtX}Mtr",kind="normal")
+    mirror2x = Cpt(FMB_Mono_Grating_Type,"MirX}Mtr",kind="normal")
 
-    gratingtype_proc = Cpt(
-        EpicsSignal,
-        "GrtX}Mtr_DCPL_CALC.PROC",
-        name="Mono Grating Type_proc",
-        kind="omitted",
-    )
-    mirror2type = Cpt(
-        EpicsSignal,
-        "MirX}Mtr_TYPE_MON",
-        write_pv="MirX}Mtr_TYPE_SP",
-        name="Mono Mirror Type",
-        kind="normal",
-        auto_monitor=True,
-    )
-    gratingx = Cpt(
-        PrettyMotorFMBO, "GrtX}Mtr", name="Mono Grating X motor", kind="normal"
-    )
-    mirror2x = Cpt(
-        PrettyMotorFMBO, "MirX}Mtr", name="Mono Mirror X motor", kind="normal"
-    )
+    Scan_Start_ev = Cpt(EpicsSignal,":EVSTART_SP", name="MONO scan start energy", kind="normal")
+    Scan_Stop_ev = Cpt(EpicsSignal,":EVSTOP_SP", name="MONO scan stop energy", kind="normal")
+    Scan_Speed_ev = Cpt(EpicsSignal,":EVVELO_SP", name="MONO scan speed", kind="normal")
+    Scan_Start = Cpt(EpicsSignal,":START_CMD.PROC",name="MONO scan start command",kind="normal")
+    Scan_Stop = Cpt(EpicsSignal,":ENERGY_ST_CMD.PROC",name="MONO scan start command",kind="normal")
 
+    scanlock = Cpt(Signal,value=0,name='lock flag for during scans')
     done = Cpt(EpicsSignalRO, ":ERDY_STS")
     done_value = 1
     stop_signal = Cpt(EpicsSignal, ":ENERGY_ST_CMD")
@@ -88,30 +80,14 @@ class Monochromator(PVPositioner):
             self.log.debug("%s.actuate = %s", self.name, self.actuate_value)
             self.actuate.put(self.actuate_value, wait=False)
 
-    # def set(self, *args, **kwargs):
-    #     "Temporary: Extend just to add debuging log messages."
-    #     status = super().set(*args, **kwargs)
-    #     # Temporarily using loud (ERROR-level) log messages for debugging purposes
-    #
-    #     def notify(status):
-    #         self.log.error("Status is done")
-    #
-    #     status.add_callback(notify)
-    #
-    #     self.log.error("Returning status object")
-    #     return status
-
 
 # mono_en= Monochromator('XF:07ID1-OP{Mono:PGM1-Ax:', name='Monochromator Energy',kind='normal')
 
 
 class EnPos(PseudoPositioner):
     """Energy pseudopositioner class.
-
     Parameters:
     -----------
-
-
     """
 
     # synthetic axis
@@ -145,10 +121,14 @@ class EnPos(PseudoPositioner):
         kind="normal",
         name="M3Pitch",
     )
-
     epumode = Cpt(EpuMode,'SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode',
-                  name='EPU Mode', kind='normal')
+                          name='EPU Mode', kind='normal')
 
+
+    sim_epu_mode = Cpt(Signal,value=0,name='dont interact with the real EPU',kind='config')
+    scanlock = Cpt(Signal,value=0,name="Lock Harmonic, Pitch, Grating for scan",kind='config')
+    harmonic = Cpt(Signal, value=1, name="EPU Harmonic",kind='config')
+    m3offset = Cpt(Signal, value=7.91, name="EPU Harmonic",kind='config')
     rotation_motor = None
 
     @pseudo_position_argument
@@ -156,11 +136,12 @@ class EnPos(PseudoPositioner):
         """Run a forward (pseudo -> real) calculation"""
         # print('In forward')
         ret = self.RealPosition(
-            epugap=self.gap(pseudo_pos.energy, pseudo_pos.polarization),
+            epugap=self.gap(pseudo_pos.energy, pseudo_pos.polarization,self.scanlock.get(),self.sim_epu_mode.get()),
             monoen=pseudo_pos.energy,
-            epuphase=abs(self.phase(pseudo_pos.energy, pseudo_pos.polarization)),
-            mir3Pitch=self.m3pitchcalc(pseudo_pos.energy),
-            epumode=self.mode(pseudo_pos.polarization)
+            epuphase=abs(self.phase(pseudo_pos.energy, pseudo_pos.polarization,self.sim_epu_mode.get())),
+            mir3Pitch=self.m3pitchcalc(pseudo_pos.energy,self.scanlock.get()),
+            epumode=self.mode(pseudo_pos.polarization,self.sim_epu_mode.get()),
+            #harmonic=self.choose_harmonic(pseudo_pos.energy,pseudo_pos.polarization,self.scanlock.get())
         )
         # print('finished forward')
         return ret
@@ -187,12 +168,16 @@ class EnPos(PseudoPositioner):
             "\nEPU Gap Readback : {}"
             "\nEPU Phase Setpoint : {}"
             "\nEPU Phase Readback : {}"
-            #"\nEPU Mode Setpoint : {}"
-            #"\nEPU Mode Readback : {}"
+            "\nEPU Mode Setpoint : {}"
+            "\nEPU Mode Readback : {}"
             "\nGrating Setpoint : {}"
             "\nGrating Readback : {}"
+            "\nGratingx Setpoint : {}"
+            "\nGratingx Readback : {}"
             "\nMirror2 Setpoint : {}"
             "\nMirror2 Readback : {}"
+            "\nMirror2x Setpoint : {}"
+            "\nMirror2x Readback : {}"
             "\nCFF : {}"
             "\nVLS : {}"
         ).format(
@@ -206,64 +191,76 @@ class EnPos(PseudoPositioner):
             ),
             colored(
                 "{:.2f}".format(self.epugap.user_setpoint.get())
-                .rstrip("0")
-                .rstrip("."),
+                    .rstrip("0")
+                    .rstrip("."),
                 "yellow",
             ),
             colored(
                 "{:.2f}".format(self.epugap.user_readback.get())
-                .rstrip("0")
-                .rstrip("."),
+                    .rstrip("0")
+                    .rstrip("."),
                 "yellow",
             ),
             colored(
                 "{:.2f}".format(self.epuphase.user_setpoint.get())
-                .rstrip("0")
-                .rstrip("."),
+                    .rstrip("0")
+                    .rstrip("."),
                 "yellow",
             ),
             colored(
                 "{:.2f}".format(self.epuphase.user_readback.get())
-                .rstrip("0")
-                .rstrip("."),
+                    .rstrip("0")
+                    .rstrip("."),
                 "yellow",
             ),
-            #colored(
-            #    "{:.2f}".format(self.epumode.user_setpoint.get())
-            #    .rstrip("0")
-            #    .rstrip("."),
-            #    "yellow",
-            #),
-            #colored(
-            #    "{:.2f}".format(self.epumode.user_readback.get())
-            #    .rstrip("0")
-            #    .rstrip("."),
-            #    "yellow",
-            #),
+            colored(
+                "{:.2f}".format(self.epumode.setpoint.get())
+                    .rstrip("0")
+                    .rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.epumode.readback.get())
+                    .rstrip("0")
+                    .rstrip("."),
+                "yellow",
+            ),
             colored(
                 "{:.2f}".format(self.monoen.grating.user_setpoint.get())
-                .rstrip("0")
-                .rstrip("."),
+                    .rstrip("0")
+                    .rstrip("."),
                 "yellow",
             ),
             colored(
                 "{:.2f}".format(self.monoen.grating.user_readback.get())
-                .rstrip("0")
-                .rstrip("."),
+                    .rstrip("0")
+                    .rstrip("."),
                 "yellow",
             ),
+            colored(self.monoen.gratingx.setpoint.get(),
+                    "yellow",
+                    ),
+            colored(self.monoen.gratingx.readback.get(),
+                    "yellow",
+                    ),
             colored(
                 "{:.2f}".format(self.monoen.mirror2.user_setpoint.get())
-                .rstrip("0")
-                .rstrip("."),
+                    .rstrip("0")
+                    .rstrip("."),
                 "yellow",
             ),
             colored(
                 "{:.2f}".format(self.monoen.mirror2.user_readback.get())
-                .rstrip("0")
-                .rstrip("."),
+                    .rstrip("0")
+                    .rstrip("."),
                 "yellow",
             ),
+            colored(self.monoen.mirror2x.setpoint.get(),
+                    "yellow",
+                    ),
+            colored(self.monoen.mirror2x.readback.get(),
+                    "yellow",
+                    ),
             colored(
                 "{:.2f}".format(self.monoen.cff.get()).rstrip("0").rstrip("."), "yellow"
             ),
@@ -282,14 +279,14 @@ class EnPos(PseudoPositioner):
             ),
             colored(
                 "{:.2f}".format(self.polarization.readback.get())
-                .rstrip("0")
-                .rstrip("."),
+                    .rstrip("0")
+                    .rstrip("."),
                 "yellow",
             ),
             colored(
                 "{:.2f}".format(self.sample_polarization.readback.get())
-                .rstrip("0")
-                .rstrip("."),
+                    .rstrip("0")
+                    .rstrip("."),
                 "yellow",
             ),
         )
@@ -311,20 +308,22 @@ class EnPos(PseudoPositioner):
         configpath=pathlib.Path(__file__).parent.absolute() / "config",
         **kwargs,
     ):
-        self.C250_gap = xr.load_dataarray(configpath / "EPU_C_250_gap.nc")
-        self.C250_intens = xr.load_dataarray(configpath / "EPU_C_250_intens.nc")
-        self.C1200_gap = xr.load_dataarray(configpath / "EPU_C_1200_gap.nc")
-        self.C1200_intens = xr.load_dataarray(configpath / "EPU_C_1200_intens.nc")
-        self.L250_gap = xr.load_dataarray(configpath / "EPU_L_250_gap.nc")
-        self.L250_intens = xr.load_dataarray(configpath / "EPU_L_250_intens.nc")
-        self.L1200_gap = xr.load_dataarray(configpath / "EPU_L_1200_gap.nc")
-        self.L1200_intens = xr.load_dataarray(configpath / "EPU_L_1200_intens.nc")
-        self.L250_gap_mrg = xr.load_dataarray(configpath / "EPU_L_250_gap_mrg.nc")
-        self.L250_intens_mrg = xr.load_dataarray(configpath / "EPU_L_250_intens_mrg.nc")
-        self.L1200_gap_mrg = xr.load_dataarray(configpath / "EPU_L_1200_gap_mrg.nc")
-        self.L1200_intens_mrg = xr.load_dataarray(
-            configpath / "EPU_L_1200_intens_mrg.nc"
-        )
+        self.gap_fit = np.zeros((10, 10))
+        self.gap_fit[0][:] = [889.981, 222.966, -0.945368, 0.00290731, -5.87973e-06, 7.80556e-09, -6.69661e-12,
+                              3.56679e-15, -1.07195e-18, 1.39775e-22]
+        self.gap_fit[1][:] = [-51.6545, -1.60757, 0.00914746, -2.65003e-05, 4.46303e-08, -4.8934e-11, 3.51531e-14,
+                              -1.4802e-17, 2.70647e-21, 0]
+        self.gap_fit[2][:] = [9.74128, 0.0528884, -0.000270428, 6.71135e-07, -6.68204e-10, 2.71974e-13, -2.82766e-17,
+                              -3.77566e-21, 0, 0]
+        self.gap_fit[3][:] = [-2.94165, -0.00110173, 3.13309e-06, -1.21787e-08, 1.21638e-11, -4.27216e-15, 3.59552e-19,
+                              0, 0, 0]
+        self.gap_fit[4][:] = [0.19242, 2.19545e-05, 6.11159e-08, 4.21707e-11, -6.84942e-14, 1.84302e-17, 0, 0, 0, 0]
+        self.gap_fit[5][:] = [-0.00615458, -9.55015e-07, -1.28929e-09, 4.28363e-13, 3.26302e-17, 0, 0, 0, 0, 0]
+        self.gap_fit[6][:] = [0.000113341, 1.90112e-08, 6.92088e-12, -1.87659e-15, 0, 0, 0, 0, 0, 0]
+        self.gap_fit[7][:] = [-1.22095e-06, -1.5686e-10, -1.09857e-14, 0, 0, 0, 0, 0, 0, 0]
+        self.gap_fit[8][:] = [7.13593e-09, 4.69949e-13, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.gap_fit[9][:] = [-1.74622e-11, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
         self.polphase = xr.load_dataarray(configpath / "polphase.nc")
         self.phasepol = xr.DataArray(
             data=self.polphase.pol,
@@ -332,117 +331,86 @@ class EnPos(PseudoPositioner):
             dims={"phase"},
         )
         self.rotation_motor = rotation_motor
-        self.epugap.tolerance.set(3)
         super().__init__(a, **kwargs)
-
+        self.epugap.tolerance.set(3)
+        
     def gap(
         self,
         energy,
         pol,
-        grating="best",
-        harmonic="best",
-        en_cutoff=1100,
-        verbose=False,
+        locked,
+        sim=0,
     ):
-        if (energy > en_cutoff and harmonic != "1") or harmonic == "3":
-            energy = energy / 3
-            
-        if (pol == -1) and 105 < energy < 1200:
-            phase = 15000
-            #g250_gap = float(self.C250_gap.interp(Energies=energy))
-            #g250_intens = float(self.C250_intens.interp(Energies=energy))
-            #g1200_gap = float(self.C1200_gap.interp(Energies=energy))
-            #g1200_intens = float(self.C1200_intens.interp(Energies=energy))
+        if(sim):
+            return self.epugap.get() # never move the gap if we are in simulated gap mode
+            # this might cause problems if someone else is moving the gap, we might move it back
+            # but I think this is not a common reason for this mode
+
+        self.harmonic.set(self.choose_harmonic(energy, pol, locked))
+        energy = energy / self.harmonic.get()
+
+        if (pol == -1):
             encalc = energy - 105.002
-            gap = 13979
-            gap += 82.857 * encalc ** 1
-            gap += -0.26294 * encalc ** 2
-            gap += 0.00090199 * encalc ** 3
-            gap += -2.3176e-06 * encalc ** 4
-            gap += 4.205e-09 * encalc ** 5
-            gap += -5.139e-12 * encalc ** 6
-            gap += 4.0034e-15 * encalc ** 7
-            gap += -1.7862e-18 * encalc ** 8
-            gap += 3.4687e-22 * encalc ** 9
-            return max(14000, gap)
-        elif (pol == -0.5) and 105 < energy < 1200:
-            phase = 15000
-            #g250_gap = float(self.C250_gap.interp(Energies=energy))
-            #g250_intens = float(self.C250_intens.interp(Energies=energy))
-            #g1200_gap = float(self.C1200_gap.interp(Energies=energy))
-            #g1200_intens = float(self.C1200_intens.interp(Energies=energy))
+            gap = 13979.0
+            gap +=   82.857      * encalc ** 1
+            gap +=   -0.26294    * encalc ** 2
+            gap +=    0.00090199 * encalc ** 3
+            gap +=   -2.3176e-06 * encalc ** 4
+            gap +=    4.205e-09  * encalc ** 5
+            gap +=   -5.139e-12  * encalc ** 6
+            gap +=    4.0034e-15 * encalc ** 7
+            gap +=   -1.7862e-18 * encalc ** 8
+            gap +=    3.4687e-22 * encalc ** 9
+            return max(14000.0,min(100000.0, gap))
+        elif (pol == -0.5):
             encalc = energy - 104.996
-            gap = 14013
-            gap += 82.76 * encalc ** 1
-            gap += -0.26128 * encalc ** 2
-            gap += 0.00088353 * encalc ** 3
-            gap += -2.2149e-06 * encalc ** 4
-            gap += 3.8919e-09 * encalc ** 5
-            gap += -4.5887e-12 * encalc ** 6
-            gap += 3.4467e-15 * encalc ** 7
-            gap += -1.4851e-18 * encalc ** 8
-            gap += 2.795e-22 * encalc ** 9
-            return max(14000, gap)
+            gap = 14013.0
+            gap +=   82.76       * encalc ** 1
+            gap +=   -0.26128    * encalc ** 2
+            gap +=    0.00088353 * encalc ** 3
+            gap +=   -2.2149e-06 * encalc ** 4
+            gap +=    3.8919e-09 * encalc ** 5
+            gap +=   -4.5887e-12 * encalc ** 6
+            gap +=    3.4467e-15 * encalc ** 7
+            gap +=   -1.4851e-18 * encalc ** 8
+            gap +=    2.795e-22  * encalc ** 9
+            return max(14000.0,min(100000.0, gap))
         elif 0 <= pol <= 90:
-            phase = self.phase(energy, pol) / 1000
-            g250_gap = float(self.L250_gap_mrg.interp(Energies=energy, phase=phase))
-            g250_intens = float(
-                self.L250_intens_mrg.interp(Energies=energy, phase=phase)
-            )
-            g1200_gap = float(self.L1200_gap_mrg.interp(Energies=energy, phase=phase))
-            g1200_intens = float(
-                self.L1200_intens_mrg.interp(Energies=energy, phase=phase)
-            )
+            return max(14000.0,min(100000.0, self.epu_gap(energy,pol)))
         elif 90 < pol <= 180:
-            phase = self.phase(energy, pol) / 1000
-            g250_gap = float(self.L250_gap_mrg.interp(Energies=energy, phase=phase))
-            g250_intens = float(
-                self.L250_intens_mrg.interp(Energies=energy, phase=phase)
-            )
-            g1200_gap = float(self.L1200_gap_mrg.interp(Energies=energy, phase=phase))
-            g1200_intens = float(
-                self.L1200_intens_mrg.interp(Energies=energy, phase=phase)
-            )
+            return max(14000.0,min(100000.0, self.epu_gap(energy,180.0-pol)))
         else:
             return np.nan
 
-        if verbose:
-            print(f"For pol {pol}, energy {energy} phase {phase}: ")
-            print(f"  . 250 l/mm grating: gap = {g250_gap}, intensity {g250_intens}")
-            print(f"  . 1200 l/mm grating: gap = {g1200_gap}, intensity {g1200_intens}")
 
-        if grating == "250" or np.isnan(g1200_gap):
-            if np.isnan(g250_gap):
-                if pol == 0:
-                    return epugap_from_en_pol(energy, 100)
-                if pol == 90:
-                    return epugap_from_en_pol(energy, 190)
-                else:
-                    return min(100000, max(14000, g1200_gap))
-            else:
-                return min(100000, max(14000, g250_gap))
-        elif grating == "1200" or np.isnan(g250_gap):
-            return min(100000, max(14000, g1200_gap))
-        else:
-            if "250" in self.monoen.gratingtype.get():
-                return min(100000, max(14000, g250_gap))
-            else:
-                return min(100000, max(14000, g1200_gap))
+    def epu_gap(self, en, pol):
+        """
+        calculate the epu gap from the energy and polarization, using a 2D polynomial fit
+        @param en: energy (valid between ~70 and 1300
+        @param pol: polarization (valid between 0 and 90)
+        @return: gap in microns
+        """
+        x = float(en)
+        y = float(pol)
+        z = 0.0
+        for i in np.arange(self.gap_fit.shape[0]):
+            for j in np.arange(self.gap_fit.shape[1]):
+                z += self.gap_fit[j, i] * (x ** i) * (y ** j)
+        return z
 
-    def phase(self, en, pol):
+    def phase(self, en, pol,sim=0):
+        if(sim):
+            return self.epuphase.get() # never move the gap if we are in simulated gap mode
+            # this might cause problems if someone else is moving the gap, we might move it back
+            # but I think this is not a common reason for this mode
         if pol == -1:
             return 15000
         elif pol == -0.5:
             return 15000
         elif 90 < pol <= 180:
-            return -min(
-                29500,
-                max(0, float(self.polphase.interp(pol=180 - pol, method="cubic"))),
-            )
+            return -min(29500.0, max(0.0,float(self.polphase.interp(pol=180 - pol, method="cubic"))))
         else:
-            return min(
-                29500, max(0, float(self.polphase.interp(pol=pol, method="cubic")))
-            )
+            return min(29500.0, max(0.0, float(self.polphase.interp(pol=pol, method="cubic"))))
 
     def pol(self, phase, mode):
         if mode == 0:
@@ -456,7 +424,15 @@ class EnPos(PseudoPositioner):
                 self.phasepol.interp(phase=np.abs(phase), method="cubic")
             )
 
-    def mode(self, pol):
+    def mode(self, pol,sim=0):
+        """
+        @param pol:
+        @return:
+        """
+        if(sim):
+            return self.epumode.get() # never move the gap if we are in simulated gap mode
+            # this might cause problems if someone else is moving the gap, we might move it back
+            # but I think this is not a common reason for this mode
         if pol == -1:
             return 0
         elif pol == -0.5:
@@ -474,83 +450,63 @@ class EnPos(PseudoPositioner):
             / np.pi
         )
 
-    def m3pitchcalc(self,energy):
-        if "1200" in self.monoen.gratingtype.get():
-            return 7.8951+0.038807*np.exp(-(energy-100)/91.942)+0.050123*np.exp(-(energy-100)/1188.9)
-        elif "250" in self.monoen.gratingtype.get():
-            return 7.8956+0.022665*np.exp(-(energy-90)/37.746)+0.024897*np.exp(-(energy-90)/450.9)
+    def m3pitchcalc(self,energy,locked):
+        pitch = self.mir3Pitch.setpoint.get()
+        if locked:
+            return pitch
+        elif "1200" in self.monoen.gratingx.readback.get():
+            pitch =  self.m3offset.get()+0.038807*np.exp(-(energy-100)/91.942)+0.050123*np.exp(-(energy-100)/1188.9)
+        elif "250" in self.monoen.gratingx.readback.get():
+            pitch =  self.m3offset.get()+0.022665*np.exp(-(energy-90)/37.746)+0.024897*np.exp(-(energy-90)/450.9)
+        return round(100*pitch)/100
+
+    def choose_harmonic(self,energy,pol,locked):
+        if locked:
+            return self.harmonic.get()
+        elif energy < 1200:
+            return 1
         else:
-            return 7.95
+            return 3
+
 
 def base_set_polarization(pol, en):
-    if pol == -1:
-        if epu_mode.get() != 0:
-            yield from bps.mv(epu_mode, 0)
-            yield from bps.sleep(1)
-    elif pol == -0.5:
-        if epu_mode.get() != 1:
-            yield from bps.mv(epu_mode, 1)
-            yield from bps.sleep(1)
-    elif 0 <= pol <= 90:
-        if epu_mode.get() != 2:
-            yield from bps.mv(epu_mode, 2)
-            yield from bps.sleep(1)
-    elif 90 < pol <= 180:
-        if epu_mode.get() != 3:
-            yield from bps.mv(epu_mode, 3)
-            yield from bps.sleep(1)
-    else:
-        print("need a valid polarization")
-        return 1
-    en.read()
-    enval = en.energy.readback.get()
-    # phaseval = en.phase(enval,pol)
-    # gapval = en.gap(enval,pol)
-    # print(enval)
-    # print(pol)
-    # print(phaseval)
-    # print(gapval)
-    # yield from bps.mv(epu_phase, phaseval,epu_gap,gapval)
     yield from bps.mv(en.polarization, pol)
-    en.read()
     return 0
 
 
 def base_grating_to_250(mono_en, en):
-    type = mono_en.gratingtype.enum_strs.index(mono_en.gratingtype.get())
-    if type == 2:
+    type = mono_en.gratingx.readback.get()
+    if '250' in type:
         print("the grating is already at 250 l/mm")
         return 0  # the grating is already here
     print("Moving the grating to 250 l/mm.  This will take a minute...")
-    yield from psh4.close()
-    yield from bps.abs_set(mono_en.gratingtype, 2, wait=False)
-    yield from bps.abs_set(mono_en.gratingtype_proc, 1, wait=True)
-    yield from bps.sleep(60)
+    yield from psh4.close_plan()
+    yield from bps.abs_set(mono_en.gratingx, 2, wait=True)
+    #yield from bps.sleep(60)
     yield from bps.mv(mirror2.user_offset, 0.04) #0.0315)
     yield from bps.mv(grating.user_offset, -0.0874)#-0.0959)
     yield from bps.mv(mono_en.cff, 1.385)
     yield from bps.mv(en, 270)
-    yield from psh4.open()
+    yield from psh4.open_plan()
     print("the grating is now at 250 l/mm")
     return 1
 
 
 def base_grating_to_1200(mono_en, en):
-    type = mono_en.gratingtype.enum_strs.index(mono_en.gratingtype.get())
-    if type == 9:
+    type = mono_en.gratingx.readback.get()
+    if '1200' in type:
         print("the grating is already at 1200 l/mm")
         return 0  # the grating is already here
     print("Moving the grating to 1200 l/mm.  This will take a minute...")
-    yield from psh4.close()
-    yield from bps.abs_set(mono_en.gratingtype, 9, wait=False)
-    yield from bps.abs_set(mono_en.gratingtype_proc, 1, wait=True)
-    yield from bps.sleep(60)
+    yield from psh4.close_plan()
+    yield from bps.abs_set(mono_en.gratingx, 9, wait=True)
+    #yield from bps.sleep(60)
     yield from bps.mv(mirror2.user_offset, 0.2044) #0.1962) #0.2052) # 0.1745)  # 8.1264)
     yield from bps.mv(grating.user_offset, 0.0769) #0.0687) # 0.0777) # 0.047)  # 7.2964)  # 7.2948)#7.2956
     yield from bps.mv(mono_en.cff, 1.7)
 
     yield from bps.mv(en, 270)
-    yield from psh4.open()
+    yield from psh4.open_plan()
     print("the grating is now at 1200 l/mm")
     return 1
 
