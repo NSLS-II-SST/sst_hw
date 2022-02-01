@@ -6,7 +6,7 @@ from ophyd import (
     EpicsMotor,
     EpicsSignal,
     PVPositionerPC,
-    SoftPositioner
+    SoftPositioner,
     Signal)
 from ophyd import Component as Cpt
 import bluesky.plan_stubs as bps
@@ -15,7 +15,7 @@ import pathlib
 import numpy as np
 import xarray as xr
 from sst_funcs.printing import boxed_text, colored
-from sst_base.motors import PrettyMotorFMBO, DeadbandEpicsMotor
+from sst_base.motors import PrettyMotorFMBO, DeadbandEpicsMotor, DeadbandMixin
 from sst_base.mirrors import FMBHexapodMirrorAxisStandAlonePitch
 from sst_hw.shutters import psh4
 from sst_hw.motors import grating, mirror2
@@ -48,7 +48,7 @@ class FMB_Mono_Grating_Type(PVPositioner):
     clear_encoder_loss = Cpt(EpicsSignal,'_ENC_LSS_CLR_CMD.PROC')
     done = Cpt(EpicsSignal,'_AXIS_STS')
 
-class Monochromator(PVPositioner):
+class Monochromator(DeadbandMixin, PVPositioner):
     setpoint = Cpt(EpicsSignal, ":ENERGY_SP", kind="normal")
     readback = Cpt(EpicsSignalRO, ":ENERGY_MON", kind="hinted")
 
@@ -333,7 +333,17 @@ class EnPos(PseudoPositioner):
         self.rotation_motor = rotation_motor
         super().__init__(a, **kwargs)
         self.epugap.tolerance.set(3)
-        
+        self.monoen.tolerance.set(0.01)
+
+    def stage(self):
+        if self.scanlock.get():
+            self.epuphase.tolerance.set(0.001)
+        super().stage()
+
+    def unstage(self):
+        self.epuphase.tolerance.set(0)
+        super().unstage()
+    
     def gap(
         self,
         energy,
