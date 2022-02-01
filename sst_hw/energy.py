@@ -136,11 +136,11 @@ class EnPos(PseudoPositioner):
         """Run a forward (pseudo -> real) calculation"""
         # print('In forward')
         ret = self.RealPosition(
-            epugap=self.gap(pseudo_pos.energy, pseudo_pos.polarization,self.scanlock.get(),self.sim_epu_mode.get()),
+            epugap=self.gap(pseudo_pos.energy, pseudo_pos.polarization, self.scanlock.get(), self.sim_epu_mode.get()),
             monoen=pseudo_pos.energy,
-            epuphase=abs(self.phase(pseudo_pos.energy, pseudo_pos.polarization,self.sim_epu_mode.get())),
-            mir3Pitch=self.m3pitchcalc(pseudo_pos.energy,self.scanlock.get()),
-            epumode=self.mode(pseudo_pos.polarization,self.sim_epu_mode.get()),
+            epuphase=abs(self.phase(pseudo_pos.energy, pseudo_pos.polarization, self.sim_epu_mode.get())),
+            mir3Pitch=self.m3pitchcalc(pseudo_pos.energy, self.scanlock.get()),
+            epumode=self.mode(pseudo_pos.polarization, self.sim_epu_mode.get()),
             #harmonic=self.choose_harmonic(pseudo_pos.energy,pseudo_pos.polarization,self.scanlock.get())
         )
         # print('finished forward')
@@ -333,7 +333,7 @@ class EnPos(PseudoPositioner):
         self.rotation_motor = rotation_motor
         super().__init__(a, **kwargs)
         self.epugap.tolerance.set(3)
-        
+
     def gap(
         self,
         energy,
@@ -450,7 +450,7 @@ class EnPos(PseudoPositioner):
             / np.pi
         )
 
-    def m3pitchcalc(self,energy,locked):
+    def m3pitchcalc(self, energy, locked):
         pitch = self.mir3Pitch.setpoint.get()
         if locked:
             return pitch
