@@ -136,11 +136,11 @@ class EnPos(PseudoPositioner):
         """Run a forward (pseudo -> real) calculation"""
         # print('In forward')
         ret = self.RealPosition(
-            epugap=self.gap(pseudo_pos.energy, pseudo_pos.polarization,self.scanlock.get(),self.sim_epu_mode.get()),
+            epugap=self.gap(pseudo_pos.energy, pseudo_pos.polarization, self.scanlock.get(), self.sim_epu_mode.get()),
             monoen=pseudo_pos.energy,
-            epuphase=abs(self.phase(pseudo_pos.energy, pseudo_pos.polarization,self.sim_epu_mode.get())),
-            mir3Pitch=self.m3pitchcalc(pseudo_pos.energy,self.scanlock.get()),
-            epumode=self.mode(pseudo_pos.polarization,self.sim_epu_mode.get()),
+            epuphase=abs(self.phase(pseudo_pos.energy, pseudo_pos.polarization, self.sim_epu_mode.get())),
+            mir3Pitch=self.m3pitchcalc(pseudo_pos.energy, self.scanlock.get()),
+            epumode=self.mode(pseudo_pos.polarization, self.sim_epu_mode.get()),
             #harmonic=self.choose_harmonic(pseudo_pos.energy,pseudo_pos.polarization,self.scanlock.get())
         )
         # print('finished forward')
@@ -348,15 +348,9 @@ class EnPos(PseudoPositioner):
         super().unstage()
     """
     
-    def gap(
-        self,
-        energy,
-        pol,
-        locked,
-        sim=0,
-    ):
+    def gap(self, energy, pol, locked, sim=0):
         if(sim):
-            return self.epugap.get() # never move the gap if we are in simulated gap mode
+            return self.epugap.get()  # never move the gap if we are in simulated gap mode
             # this might cause problems if someone else is moving the gap, we might move it back
             # but I think this is not a common reason for this mode
 
@@ -464,7 +458,7 @@ class EnPos(PseudoPositioner):
             / np.pi
         )
 
-    def m3pitchcalc(self,energy,locked):
+    def m3pitchcalc(self, energy, locked):
         pitch = self.mir3Pitch.setpoint.get()
         if locked:
             return pitch
