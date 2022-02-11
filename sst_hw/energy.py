@@ -2,7 +2,6 @@ from ophyd import (
     PVPositioner,
     EpicsSignalRO,
     PseudoPositioner,
-    PseudoSingle,
     EpicsMotor,
     EpicsSignal,
     PVPositionerPC,
@@ -15,7 +14,8 @@ import pathlib
 import numpy as np
 import xarray as xr
 from sst_funcs.printing import boxed_text, colored
-from sst_base.motors import PrettyMotorFMBO, DeadbandEpicsMotor, DeadbandMixin
+from sst_base.motors import PrettyMotorFMBO
+from sst_base.positioners import DeadbandEpicsMotor, DeadbandMixin, PseudoSingle
 from sst_base.mirrors import FMBHexapodMirrorAxisStandAlonePitch
 from sst_hw.shutters import psh4
 from sst_hw.motors import grating, mirror2
