@@ -26,8 +26,8 @@ from sst_hw.mirrors import mir3
 
 class UndulatorMotor(DeadbandEpicsMotor):
     user_setpoint = Cpt(EpicsSignal, "-SP", limits=True)
-    done = Cpt(EpicsSignalRO, ".MOVN")
-    done_value = 0
+    #done = Cpt(EpicsSignalRO, ".MOVN")
+    #done_value = 0
 
 
 class EpuMode(PVPositionerPC):
@@ -333,17 +333,21 @@ class EnPos(PseudoPositioner):
         self.rotation_motor = rotation_motor
         super().__init__(a, **kwargs)
         self.epugap.tolerance.set(3)
+        self.epuphase.tolerance.set(10)
+        self.mir3Pitch.tolerance.set(.01)
         self.monoen.tolerance.set(0.01)
 
+    """
     def stage(self):
         if self.scanlock.get():
-            self.epuphase.tolerance.set(0.001)
+            self.epuphase.tolerance.set(10)
         super().stage()
 
     def unstage(self):
         self.epuphase.tolerance.set(0)
         super().unstage()
-
+    """
+    
     def gap(self, energy, pol, locked, sim=0):
         if(sim):
             return self.epugap.get()  # never move the gap if we are in simulated gap mode
