@@ -9,6 +9,5 @@ setup(
     description="SST hardware definitions",
     install_requires=requirements,
     name="sst_hw",
-    use_scm_version=True,
     packages=find_packages()
 )
