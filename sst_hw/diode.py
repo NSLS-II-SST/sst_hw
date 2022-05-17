@@ -1,6 +1,6 @@
 from ophyd import EpicsSignal, PVPositionerPC, Signal, Component
 from ophyd.status import SubscriptionStatus
-from ..CommonFunctions.functions import run_report
+from sst_funcs.printing import run_report
 
 
 run_report(__file__)
