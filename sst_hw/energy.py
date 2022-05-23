@@ -1244,26 +1244,3 @@ class EnSimEPUPos(PseudoPositioner):
                 return 1
             else:
                 return 3
-
-
-
-
-Mono_Scan_Start_ev = EpicsSignal(
-    "XF:07ID1-OP{Mono:PGM1-Ax::EVSTART_SP", name="MONO scan start energy", kind="normal"
-)
-Mono_Scan_Stop_ev = EpicsSignal(
-    "XF:07ID1-OP{Mono:PGM1-Ax::EVSTOP_SP", name="MONO scan stop energy", kind="normal"
-)
-Mono_Scan_Speed_ev = EpicsSignal(
-    "XF:07ID1-OP{Mono:PGM1-Ax::EVVELO_SP", name="MONO scan speed", kind="normal"
-)
-Mono_Scan_Start = EpicsSignal(
-    "XF:07ID1-OP{Mono:PGM1-Ax::START_CMD.PROC",
-    name="MONO scan start command",
-    kind="normal",
-)
-Mono_Scan_Stop = EpicsSignal(
-    "XF:07ID1-OP{Mono:PGM1-Ax::ENERGY_ST_CMD.PROC",
-    name="MONO scan start command",
-    kind="normal",
-)
