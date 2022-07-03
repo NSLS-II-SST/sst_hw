@@ -354,7 +354,7 @@ class EnPos(PseudoPositioner):
             # this might cause problems if someone else is moving the gap, we might move it back
             # but I think this is not a common reason for this mode
 
-        self.harmonic.set(self.choose_harmonic(energy, pol, locked))
+        #self.harmonic.set(self.choose_harmonic(energy, pol, locked))
         energy = energy / self.harmonic.get()
 
         if (pol == -1):
