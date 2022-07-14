@@ -31,7 +31,7 @@ class UndulatorMotor(DeadbandEpicsMotor):
 
 
 class EpuMode(PVPositionerPC):
-    setpoint = Cpt(EpicsSignal,"-SP", kind="normal")
+    setpoint = Cpt(EpicsSignal,"-SP", kind="config")
     readback = Cpt(EpicsSignal,"-RB", kind="normal")
 
 
@@ -39,36 +39,36 @@ class EpuMode(PVPositionerPC):
 #    "SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode-SP", name="EPU 60 Mode", kind="normal"
 #)
 class FMB_Mono_Grating_Type(PVPositioner):
-    setpoint = Cpt(EpicsSignal,'_TYPE_SP',string=True)
-    readback = Cpt(EpicsSignal,'_TYPE_MON',string=True)
-    actuate = Cpt(EpicsSignal,'_DCPL_CALC.PROC')
-    enable = Cpt(EpicsSignal,'_ENA_CMD.PROC')
-    kill = Cpt(EpicsSignal,'_KILL_CMD.PROC')
-    home = Cpt(EpicsSignal,'_HOME_CMD.PROC')
-    clear_encoder_loss = Cpt(EpicsSignal,'_ENC_LSS_CLR_CMD.PROC')
-    done = Cpt(EpicsSignal,'_AXIS_STS')
+    setpoint = Cpt(EpicsSignal,'_TYPE_SP',string=True,kind="config")
+    readback = Cpt(EpicsSignal,'_TYPE_MON',string=True,kind="config")
+    actuate = Cpt(EpicsSignal,'_DCPL_CALC.PROC',kind="config")
+    enable = Cpt(EpicsSignal,'_ENA_CMD.PROC',kind="config")
+    kill = Cpt(EpicsSignal,'_KILL_CMD.PROC',kind="config")
+    home = Cpt(EpicsSignal,'_HOME_CMD.PROC',kind="config")
+    clear_encoder_loss = Cpt(EpicsSignal,'_ENC_LSS_CLR_CMD.PROC',kind="config")
+    done = Cpt(EpicsSignal,'_AXIS_STS',kind="config")
 
 class Monochromator(DeadbandMixin, PVPositioner):
-    setpoint = Cpt(EpicsSignal, ":ENERGY_SP", kind="normal")
+    setpoint = Cpt(EpicsSignal, ":ENERGY_SP", kind="config")
     readback = Cpt(EpicsSignalRO, ":ENERGY_MON", kind="hinted")
 
-    grating = Cpt(PrettyMotorFMBO, "GrtP}Mtr", name="Mono Grating", kind="normal")
-    mirror2 = Cpt(PrettyMotorFMBO, "MirP}Mtr", name="Mono Mirror", kind="normal")
-    cff = Cpt(EpicsSignal, ":CFF_SP", name="Mono CFF", kind="normal", auto_monitor=True)
-    vls = Cpt(EpicsSignal, ":VLS_B2.A", name="Mono VLS", kind="normal", auto_monitor=True)
-    gratingx = Cpt(FMB_Mono_Grating_Type,"GrtX}Mtr",kind="normal")
-    mirror2x = Cpt(FMB_Mono_Grating_Type,"MirX}Mtr",kind="normal")
+    grating = Cpt(PrettyMotorFMBO, "GrtP}Mtr", name="Mono Grating", kind="config")
+    mirror2 = Cpt(PrettyMotorFMBO, "MirP}Mtr", name="Mono Mirror", kind="config")
+    cff = Cpt(EpicsSignal, ":CFF_SP", name="Mono CFF", kind="config", auto_monitor=True)
+    vls = Cpt(EpicsSignal, ":VLS_B2.A", name="Mono VLS", kind="config", auto_monitor=True)
+    gratingx = Cpt(FMB_Mono_Grating_Type,"GrtX}Mtr",kind="config")
+    mirror2x = Cpt(FMB_Mono_Grating_Type,"MirX}Mtr",kind="config")
 
-    Scan_Start_ev = Cpt(EpicsSignal,":EVSTART_SP", name="MONO scan start energy", kind="normal")
-    Scan_Stop_ev = Cpt(EpicsSignal,":EVSTOP_SP", name="MONO scan stop energy", kind="normal")
-    Scan_Speed_ev = Cpt(EpicsSignal,":EVVELO_SP", name="MONO scan speed", kind="normal")
-    Scan_Start = Cpt(EpicsSignal,":START_CMD.PROC",name="MONO scan start command",kind="normal")
-    Scan_Stop = Cpt(EpicsSignal,":ENERGY_ST_CMD.PROC",name="MONO scan start command",kind="normal")
+    Scan_Start_ev = Cpt(EpicsSignal,":EVSTART_SP", name="MONO scan start energy", kind="config")
+    Scan_Stop_ev = Cpt(EpicsSignal,":EVSTOP_SP", name="MONO scan stop energy", kind="config")
+    Scan_Speed_ev = Cpt(EpicsSignal,":EVVELO_SP", name="MONO scan speed", kind="config")
+    Scan_Start = Cpt(EpicsSignal,":START_CMD.PROC",name="MONO scan start command",kind="config")
+    Scan_Stop = Cpt(EpicsSignal,":ENERGY_ST_CMD.PROC",name="MONO scan start command",kind="config")
 
-    scanlock = Cpt(Signal,value=0,name='lock flag for during scans')
-    done = Cpt(EpicsSignalRO, ":ERDY_STS")
+    scanlock = Cpt(Signal,value=0,name='lock flag for during scans',kind='config')
+    done = Cpt(EpicsSignalRO, ":ERDY_STS",kind="config")
     done_value = 1
-    stop_signal = Cpt(EpicsSignal, ":ENERGY_ST_CMD")
+    stop_signal = Cpt(EpicsSignal, ":ENERGY_ST_CMD",kind="config")
 
     def _setup_move(self, position):
         """Move and do not wait until motion is complete (asynchronous)"""
@@ -96,33 +96,33 @@ class EnPos(PseudoPositioner):
         PseudoSingle, kind="hinted", limits=(-1, 180), name="X-ray Polarization"
     )
     sample_polarization = Cpt(
-        PseudoSingle, kind="hinted", name="Sample X-ray polarization"
+        PseudoSingle, kind="config", name="Sample X-ray polarization"
     )
     # real motors
 
     monoen = Cpt(
-        Monochromator, "XF:07ID1-OP{Mono:PGM1-Ax:", kind="hinted", name="Mono Energy"
+        Monochromator, "XF:07ID1-OP{Mono:PGM1-Ax:", kind="config", name="Mono Energy"
     )
     epugap = Cpt(
         UndulatorMotor,
         "SR:C07-ID:G1A{SST1:1-Ax:Gap}-Mtr",
-        kind="normal",
+        kind="config",
         name="EPU Gap",
     )
     epuphase = Cpt(
         UndulatorMotor,
         "SR:C07-ID:G1A{SST1:1-Ax:Phase}-Mtr",
-        kind="normal",
+        kind="config",
         name="EPU Phase",
     )
     mir3Pitch = Cpt(
         FMBHexapodMirrorAxisStandAlonePitch,
         "XF:07ID1-OP{Mir:M3ABC",
-        kind="normal",
+        kind="config",
         name="M3Pitch",
     )
     epumode = Cpt(EpuMode,'SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode',
-                          name='EPU Mode', kind='normal')
+                          name='EPU Mode', kind='config')
 
 
     sim_epu_mode = Cpt(Signal,value=0,name='dont interact with the real EPU',kind='config')
@@ -496,7 +496,7 @@ def base_grating_to_250(mono_en, en):
     #yield from bps.sleep(60)
     #yield from bps.mv(mirror2.user_offset, 0.04) #0.0315)
     #yield from bps.mv(grating.user_offset, -0.0874)#-0.0959)
-    yield from bps.mv(en.m3offset,7.55)
+    yield from bps.mv(en.m3offset,7.90)
     yield from bps.mv(mono_en.cff, 1.385)
     yield from bps.mv(en, 270)
     yield from psh4.open()
@@ -516,7 +516,7 @@ def base_grating_to_1200(mono_en, en):
     #yield from bps.mv(mirror2.user_offset, 0.2044) #0.1962) #0.2052) # 0.1745)  # 8.1264)
     #yield from bps.mv(grating.user_offset, 0.0769) #0.0687) # 0.0777) # 0.047)  # 7.2964)  # 7.2948)#7.2956
     yield from bps.mv(mono_en.cff, 1.7)
-    yield from bps.mv(en.m3offset,7.66)
+    yield from bps.mv(en.m3offset,7.791)
     yield from bps.mv(en, 270)
     yield from psh4.open()
     print("the grating is now at 1200 l/mm")
@@ -535,7 +535,7 @@ def base_grating_to_rsoxs(mono_en, en):
     #yield from bps.mv(mirror2.user_offset, 0.2044) #0.1962) #0.2052) # 0.1745)  # 8.1264)
     #yield from bps.mv(grating.user_offset, 0.0769) #0.0687) # 0.0777) # 0.047)  # 7.2964)  # 7.2948)#7.2956
     #yield from bps.mv(mono_en.cff, 1.7)
-    yield from bps.mv(en.m3offset,7.6024)
+    yield from bps.mv(en.m3offset,7.87)
     yield from bps.mv(en, 270)
     yield from psh4.open()
     print("the grating is now at RSoXS 250 l/mm with low higher order")
