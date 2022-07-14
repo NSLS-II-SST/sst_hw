@@ -1,10 +1,10 @@
 from sst_base.shutters import EPS_Shutter
 
-psh1 = EPS_Shutter("XF:07ID-PPS{Sh:FE}", name="Front-End Shutter",
+FEsh1 = EPS_Shutter("XF:07ID-PPS{Sh:FE}", name="Front-End Shutter",
                    kind="hinted")
-psh1.shutter_type = "FE"
-psh1.openval = 0
-psh1.closeval = 1
+FEsh1.shutter_type = "FE"
+FEsh1.openval = 0
+FEsh1.closeval = 1
 
 psh4 = EPS_Shutter("XF:07IDA-PPS{PSh:4}", name="Hutch Photon Shutter",
                    kind="hinted")
