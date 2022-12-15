@@ -115,12 +115,12 @@ class EnPos(PseudoPositioner):
         kind="normal",
         name="EPU Phase",
     )
-    mir3Pitch = Cpt(
-        FMBHexapodMirrorAxisStandAlonePitch,
-        "XF:07ID1-OP{Mir:M3ABC",
-        kind="normal",
-        name="M3Pitch",
-    )
+    #mir3Pitch = Cpt(
+    #    FMBHexapodMirrorAxisStandAlonePitch,
+    #    "XF:07ID1-OP{Mir:M3ABC",
+    #    kind="normal",
+    #    name="M3Pitch",
+    #)
     epumode = Cpt(EpuMode,'SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode',
                           name='EPU Mode', kind='normal')
 
@@ -139,7 +139,7 @@ class EnPos(PseudoPositioner):
             epugap=self.gap(pseudo_pos.energy, pseudo_pos.polarization, self.scanlock.get(), self.sim_epu_mode.get()),
             monoen=pseudo_pos.energy,
             epuphase=abs(self.phase(pseudo_pos.energy, pseudo_pos.polarization, self.sim_epu_mode.get())),
-            mir3Pitch=self.m3pitchcalc(pseudo_pos.energy, self.scanlock.get()),
+            #mir3Pitch=self.m3pitchcalc(pseudo_pos.energy, self.scanlock.get()),
             epumode=self.mode(pseudo_pos.polarization, self.sim_epu_mode.get()),
             #harmonic=self.choose_harmonic(pseudo_pos.energy,pseudo_pos.polarization,self.scanlock.get())
         )
@@ -334,7 +334,7 @@ class EnPos(PseudoPositioner):
         super().__init__(a, **kwargs)
         self.epugap.tolerance.set(3)
         self.epuphase.tolerance.set(10)
-        self.mir3Pitch.tolerance.set(.01)
+        #self.mir3Pitch.tolerance.set(.01)
         self.monoen.tolerance.set(0.01)
 
     """
