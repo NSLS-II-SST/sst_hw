@@ -26,6 +26,11 @@ rsoxs_pg_main = EpicsSignalRO(
     name="Main Chamber Pirani Gauge",
     kind="hinted",
 )
+rsoxs_pg_main_val = EpicsSignalRO(
+    "XF:07IDB-VA:2{RSoXS:Main-TCG:1}P-I",
+    name="Main Chamber Pirani Gauge value",
+    kind="hinted",
+)
 rsoxs_ccg_ll = EpicsSignalRO(
     "XF:07IDB-VA:2{RSoXS:LL-CCG:1}P:Raw-I",
     name="Load Lock Chamber Cold Cathode Gauge",

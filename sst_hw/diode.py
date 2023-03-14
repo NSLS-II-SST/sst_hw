@@ -33,6 +33,11 @@ Shutter_control = EpicsSignal(
     name="RSoXS Shutter Toggle",
     kind="normal",
 )
+Shutter_control = EpicsSignal(
+    "XF:07IDB-CT{DIODE-Local:1}OutPt01:Data-Sel",
+    name="RSoXS Shutter Toggle",
+    kind="normal",
+)
 Shutter_delay = EpicsSignal(
     "XF:07IDB-CT{DIODE-MTO:1}OutDelaySet:2-SP",
     name="RSoXS Shutter Delay (ms)",
