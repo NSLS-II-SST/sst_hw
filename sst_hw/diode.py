@@ -11,6 +11,16 @@ Shutter_enable = EpicsSignal(
     name="RSoXS Shutter Toggle Enable",
     kind="normal",
 )
+Shutter_SAXS_count = EpicsSignal(
+    "XF:07IDB-CT{DIODE-Local:2}InCounter01:Count-I",
+    name="RSoXS SAXS Shutter Counter",
+    kind="normal",
+)
+Shutter_WAXS_count = EpicsSignal(
+    "XF:07IDB-CT{DIODE-Local:2}InCounter00:Count-I",
+    name="RSoXS WAXS Shutter Counter",
+    kind="normal",
+)
 Shutter_enable1 = EpicsSignal(
     "XF:07IDB-CT{DIODE-MTO:1}InMaskBit:1-Sel",
     name="RSoXS Shutter Toggle Enable In",
