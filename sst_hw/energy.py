@@ -13,6 +13,7 @@ from ophyd.pseudopos import pseudo_position_argument, real_position_argument
 import pathlib
 import numpy as np
 import xarray as xr
+from sst_funcs.gGrEqns import energy as calc_energy
 from sst_funcs.printing import boxed_text, colored
 from sst_base.motors import PrettyMotorFMBO
 from sst_base.positioners import DeadbandEpicsMotor, DeadbandMixin, PseudoSingle
@@ -50,7 +51,8 @@ class FMB_Mono_Grating_Type(PVPositioner):
 
 class Monochromator(DeadbandMixin, PVPositioner):
     setpoint = Cpt(EpicsSignal, ":ENERGY_SP", kind="config")
-    readback = Cpt(EpicsSignalRO, ":ENERGY_MON", kind="hinted")
+    readback = Cpt(EpicsSignalRO, ":ENERGY_MON", kind="config")
+    en_mon = Cpt(EpicsSignalRO, ":READBACK2.A",name="Energy", kind="hinted")
 
     grating = Cpt(PrettyMotorFMBO, "GrtP}Mtr", name="Mono Grating", kind="config")
     mirror2 = Cpt(PrettyMotorFMBO, "MirP}Mtr", name="Mono Mirror", kind="config")
@@ -69,6 +71,10 @@ class Monochromator(DeadbandMixin, PVPositioner):
     done = Cpt(EpicsSignalRO, ":ERDY_STS",kind="config")
     done_value = 1
     stop_signal = Cpt(EpicsSignal, ":ENERGY_ST_CMD",kind="config")
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def _setup_move(self, position):
         """Move and do not wait until motion is complete (asynchronous)"""
@@ -93,7 +99,7 @@ class EnPos(PseudoPositioner):
     # synthetic axis
     energy = Cpt(PseudoSingle, kind="hinted", limits=(71, 2250), name="Beamline Energy")
     polarization = Cpt(
-        PseudoSingle, kind="hinted", limits=(-1, 180), name="X-ray Polarization"
+        PseudoSingle, kind="normal", limits=(-1, 180), name="X-ray Polarization"
     )
     sample_polarization = Cpt(
         PseudoSingle, kind="config", name="Sample X-ray polarization"
