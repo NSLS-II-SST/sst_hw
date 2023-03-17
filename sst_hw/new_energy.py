@@ -35,22 +35,22 @@ class UndulatorMotor(DeadbandEpicsMotor):
 
 
 class EpuMode(PVPositionerPC):
-    setpoint = Cpt(EpicsSignal,"-SP", kind="normal")
-    readback = Cpt(EpicsSignal,"-RB", kind="normal")
+    setpoint = Cpt(EpicsSignal, "-SP", kind="normal")
+    readback = Cpt(EpicsSignal, "-RB", kind="normal")
 
 
 #epu_mode = EpicsSignal(
 #    "SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode-SP", name="EPU 60 Mode", kind="normal"
 #)
 class FMB_Mono_Grating_Type(PVPositioner):
-    setpoint = Cpt(EpicsSignal,'_TYPE_SP',string=True)
-    readback = Cpt(EpicsSignal,'_TYPE_MON',string=True)
-    actuate = Cpt(EpicsSignal,'_DCPL_CALC.PROC')
-    enable = Cpt(EpicsSignal,'_ENA_CMD.PROC')
-    kill = Cpt(EpicsSignal,'_KILL_CMD.PROC')
-    home = Cpt(EpicsSignal,'_HOME_CMD.PROC')
-    clear_encoder_loss = Cpt(EpicsSignal,'_ENC_LSS_CLR_CMD.PROC')
-    done = Cpt(EpicsSignal,'_AXIS_STS')
+    setpoint = Cpt(EpicsSignal, '_TYPE_SP', string=True)
+    readback = Cpt(EpicsSignal, '_TYPE_MON', string=True)
+    actuate = Cpt(EpicsSignal, '_DCPL_CALC.PROC')
+    enable = Cpt(EpicsSignal, '_ENA_CMD.PROC')
+    kill = Cpt(EpicsSignal, '_KILL_CMD.PROC')
+    home = Cpt(EpicsSignal, '_HOME_CMD.PROC')
+    clear_encoder_loss = Cpt(EpicsSignal, '_ENC_LSS_CLR_CMD.PROC')
+    done = Cpt(EpicsSignal, '_AXIS_STS')
 
 class Monochromator(DeadbandMixin, PVPositioner):
     setpoint = Cpt(EpicsSignal, ":ENERGY_SP", kind="normal")
@@ -60,16 +60,16 @@ class Monochromator(DeadbandMixin, PVPositioner):
     mirror2 = Cpt(PrettyMotorFMBO, "MirP}Mtr", name="Mono Mirror", kind="config")
     cff = Cpt(EpicsSignal, ":CFF_SP", name="Mono CFF", kind="config", auto_monitor=True)
     vls = Cpt(EpicsSignal, ":VLS_B2.A", name="Mono VLS", kind="config", auto_monitor=True)
-    gratingx = Cpt(FMB_Mono_Grating_Type,"GrtX}Mtr",kind="config")
-    mirror2x = Cpt(FMB_Mono_Grating_Type,"MirX}Mtr",kind="config")
+    gratingx = Cpt(FMB_Mono_Grating_Type, "GrtX}Mtr", kind="config")
+    mirror2x = Cpt(FMB_Mono_Grating_Type, "MirX}Mtr", kind="config")
 
-    Scan_Start_ev = Cpt(EpicsSignal,":EVSTART_SP", name="MONO scan start energy", kind="config")
-    Scan_Stop_ev = Cpt(EpicsSignal,":EVSTOP_SP", name="MONO scan stop energy", kind="config")
-    Scan_Speed_ev = Cpt(EpicsSignal,":EVVELO_SP", name="MONO scan speed", kind="config")
-    Scan_Start = Cpt(EpicsSignal,":START_CMD.PROC",name="MONO scan start command",kind="config")
-    Scan_Stop = Cpt(EpicsSignal,":ENERGY_ST_CMD.PROC",name="MONO scan stop command",kind="config")
+    Scan_Start_ev = Cpt(EpicsSignal, ":EVSTART_SP", name="MONO scan start energy", kind="config")
+    Scan_Stop_ev = Cpt(EpicsSignal, ":EVSTOP_SP", name="MONO scan stop energy", kind="config")
+    Scan_Speed_ev = Cpt(EpicsSignal, ":EVVELO_SP", name="MONO scan speed", kind="config")
+    Scan_Start = Cpt(EpicsSignal, ":START_CMD.PROC", name="MONO scan start command", kind="config")
+    Scan_Stop = Cpt(EpicsSignal, ":ENERGY_ST_CMD.PROC", name="MONO scan stop command", kind="config")
 
-    scanlock = Cpt(Signal,value=0,name='lock flag for during scans')
+    scanlock = Cpt(Signal, value=0, name='lock flag for during scans')
     done = Cpt(EpicsSignalRO, ":ERDY_STS")
     done_value = 1
     stop_signal = Cpt(EpicsSignal, ":ENERGY_ST_CMD")
@@ -123,18 +123,26 @@ class NewEnPos(PseudoPositioner):
                  configpath=pathlib.Path(__file__).parent.absolute() / "config",
                  **kwargs):
         self.gap_fit = np.zeros((10, 10))
-        self.gap_fit[0][:] = [889.981, 222.966, -0.945368, 0.00290731, -5.87973e-06, 7.80556e-09, -6.69661e-12,
+        self.gap_fit[0][:] = [889.981, 222.966, -0.945368, 0.00290731,
+                              -5.87973e-06, 7.80556e-09, -6.69661e-12,
                               3.56679e-15, -1.07195e-18, 1.39775e-22]
-        self.gap_fit[1][:] = [-51.6545, -1.60757, 0.00914746, -2.65003e-05, 4.46303e-08, -4.8934e-11, 3.51531e-14,
+        self.gap_fit[1][:] = [-51.6545, -1.60757, 0.00914746, -2.65003e-05,
+                              4.46303e-08, -4.8934e-11, 3.51531e-14,
                               -1.4802e-17, 2.70647e-21, 0]
-        self.gap_fit[2][:] = [9.74128, 0.0528884, -0.000270428, 6.71135e-07, -6.68204e-10, 2.71974e-13, -2.82766e-17,
+        self.gap_fit[2][:] = [9.74128, 0.0528884, -0.000270428, 6.71135e-07,
+                              -6.68204e-10, 2.71974e-13, -2.82766e-17,
                               -3.77566e-21, 0, 0]
-        self.gap_fit[3][:] = [-2.94165, -0.00110173, 3.13309e-06, -1.21787e-08, 1.21638e-11, -4.27216e-15, 3.59552e-19,
+        self.gap_fit[3][:] = [-2.94165, -0.00110173, 3.13309e-06, -1.21787e-08,
+                              1.21638e-11, -4.27216e-15, 3.59552e-19,
                               0, 0, 0]
-        self.gap_fit[4][:] = [0.19242, 2.19545e-05, 6.11159e-08, 4.21707e-11, -6.84942e-14, 1.84302e-17, 0, 0, 0, 0]
-        self.gap_fit[5][:] = [-0.00615458, -9.55015e-07, -1.28929e-09, 4.28363e-13, 3.26302e-17, 0, 0, 0, 0, 0]
-        self.gap_fit[6][:] = [0.000113341, 1.90112e-08, 6.92088e-12, -1.87659e-15, 0, 0, 0, 0, 0, 0]
-        self.gap_fit[7][:] = [-1.22095e-06, -1.5686e-10, -1.09857e-14, 0, 0, 0, 0, 0, 0, 0]
+        self.gap_fit[4][:] = [0.19242, 2.19545e-05, 6.11159e-08, 4.21707e-11,
+                              -6.84942e-14, 1.84302e-17, 0, 0, 0, 0]
+        self.gap_fit[5][:] = [-0.00615458, -9.55015e-07, -1.28929e-09,
+                              4.28363e-13, 3.26302e-17, 0, 0, 0, 0, 0]
+        self.gap_fit[6][:] = [0.000113341, 1.90112e-08, 6.92088e-12,
+                              -1.87659e-15, 0, 0, 0, 0, 0, 0]
+        self.gap_fit[7][:] = [-1.22095e-06, -1.5686e-10, -1.09857e-14,
+                              0, 0, 0, 0, 0, 0, 0]
         self.gap_fit[8][:] = [7.13593e-09, 4.69949e-13, 0, 0, 0, 0, 0, 0, 0, 0]
         self.gap_fit[9][:] = [-1.74622e-11, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -152,8 +160,8 @@ class NewEnPos(PseudoPositioner):
         self.monoen.tolerance.set(0.01)
         self._ready_to_fly = False
         self._fly_move_st = None
-        self._default_resolution = 0.01
-        self._flyer_lag_ev = 0.05
+        self._default_time_resolution = 0.05
+        self._flyer_lag_ev = 0.1
         self._time_resolution = None
         self._flying = False
 
@@ -190,15 +198,24 @@ class NewEnPos(PseudoPositioner):
     def _sequential_move(self, real_pos, timeout=None, **kwargs):
         raise Exception("nope")
 
-    def preflight(self, start, stop, speed, resolution=None):
+    def preflight(self, start, stop, speed, *args, time_resolution=None):
         self.monoen.Scan_Start_ev.set(start)
         self.monoen.Scan_Stop_ev.set(stop)
         self.monoen.Scan_Speed_ev.set(speed)
-        self._flyer_pol = self.polarization.setpoint.get()
-        if resolution is not None:
-            self._time_resolution = resolution/speed
+        if len(args) > 0:
+            if len(args) % 3 != 0:
+                raise ValueError("args must be start2, stop2, speed2[, start3, stop3, speed3, ...] and must be a multiple of 3")
+            else:
+                self.flight_segments = ((args[3*n], args[3*n + 1], args[3*n + 2]) for n in range(len(args)//3))
         else:
-            self._time_resolution = self._default_resolution/speed
+            self.flight_segments = iter(())
+
+        self._flyer_pol = self.polarization.setpoint.get()
+
+        if time_resolution is not None:
+            self._time_resolution = time_resolution
+        elif self._time_resolution is None:
+            self._time_resolution = self._default_time_resolution
 
         self.energy.set(start).wait()
         time.sleep(0.25)
@@ -215,8 +232,19 @@ class NewEnPos(PseudoPositioner):
             self._fly_move_st.set_exception(RuntimeError)
         else:
             def check_value(*, old_value, value, **kwargs):
-                return (old_value != 1 and value == 1)
-            
+                if (old_value != 1 and value == 1):
+                    try:
+                        start, stop, speed = next(self.flight_segments)
+                        self.monoen.Scan_Start_ev.set(start)
+                        self.monoen.Scan_Stop_ev.set(stop)
+                        self.monoen.Scan_Speed_ev.set(speed)
+                        self.monoen.Scan_Start.set(1)
+                        return False
+                    except StopIteration:
+                        return True
+                else:
+                    return False
+
             self._fly_move_st = SubscriptionStatus(self.monoen.done, check_value, run=False)
             self.monoen.Scan_Start.set(1)
             self._flying = True
@@ -227,7 +255,7 @@ class NewEnPos(PseudoPositioner):
         if self._fly_move_st.done:
             self._flying = False
             self._time_resolution = None
-        
+
     def kickoff(self):
         kickoff_st = DeviceStatus(device=self)
         self._flyer_queue = Queue()
@@ -237,12 +265,11 @@ class NewEnPos(PseudoPositioner):
         kickoff_st.set_finished()
         return kickoff_st
 
-
     def _aggregate(self):
         name = self.monoen.readback.name
         while self._measuring:
-            t = time.time()
             rb = self.monoen.readback.read()
+            t = time.time()
             value = rb[name]['value']
             ts = rb[name]['timestamp']
             self._flyer_buffer.append(value)
