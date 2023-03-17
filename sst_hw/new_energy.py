@@ -111,7 +111,7 @@ class NewEnPos(PseudoPositioner):
     #                name="M3Pitch")
     epumode = Cpt(EpuMode,'SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode',
                   name='EPU Mode', kind="config")
-
+    #_real = ['monoen'] # uncomment to cut EPU out of the real positioners and just use mono
 
     sim_epu_mode = Cpt(Signal, value=0, name='dont interact with the real EPU',kind='config')
     scanlock = Cpt(Signal, value=0, name="Lock Harmonic, Pitch, Grating for scan",kind='config')
@@ -153,7 +153,9 @@ class NewEnPos(PseudoPositioner):
             dims={"phase"},
         )
         self.rotation_motor = rotation_motor
+        
         super().__init__(a, **kwargs)
+
         self.epugap.tolerance.set(3)
         self.epuphase.tolerance.set(10)
         #self.mir3Pitch.tolerance.set(.01)
@@ -169,15 +171,18 @@ class NewEnPos(PseudoPositioner):
     def forward(self, pseudo_pos):
         """Run a forward (pseudo -> real) calculation"""
         # print('In forward')
-        epu_mode = self.sim_epu_mode.get()
-        ret = self.RealPosition(
-            epugap=self.gap(pseudo_pos.energy, pseudo_pos.polarization, self.scanlock.get(), epu_mode),
-            monoen=pseudo_pos.energy,
-            epuphase=abs(self.phase(pseudo_pos.energy, pseudo_pos.polarization, epu_mode)),
-            #mir3Pitch=self.m3pitchcalc(pseudo_pos.energy, self.scanlock.get()),
-            epumode=self.mode(pseudo_pos.polarization, epu_mode),
-            #harmonic=self.choose_harmonic(pseudo_pos.energy,pseudo_pos.polarization,self.scanlock.get())
-        )
+        epu_sim = self.sim_epu_mode.get()
+        if epu_sim:
+            ret = self.RealPosition(monoen=pseudo_pos.energy)
+        else:
+            ret = self.RealPosition(
+                epugap=self.gap(pseudo_pos.energy, pseudo_pos.polarization, self.scanlock.get(), epu_sim),
+                monoen=pseudo_pos.energy,
+                epuphase=abs(self.phase(pseudo_pos.energy, pseudo_pos.polarization, epu_sim)),
+                #mir3Pitch=self.m3pitchcalc(pseudo_pos.energy, self.scanlock.get()),
+                epumode=self.mode(pseudo_pos.polarization, epu_sim),
+                #harmonic=self.choose_harmonic(pseudo_pos.energy,pseudo_pos.polarization,self.scanlock.get())
+            )
         # print('finished forward')
         return ret
 
@@ -185,13 +190,23 @@ class NewEnPos(PseudoPositioner):
     def inverse(self, real_pos):
         """Run an inverse (real -> pseudo) calculation"""
         # print('in Inverse')
-        ret = self.PseudoPosition(
-            energy=real_pos.monoen,
-            polarization=self.pol(real_pos.epuphase, real_pos.epumode),
-            sample_polarization=self.sample_pol(
-                self.pol(real_pos.epuphase, real_pos.epumode)
-            ),
-        )
+        epu_sim = self.sim_epu_mode.get()
+        if epu_sim:
+            ret = self.PseudoPosition(
+                energy=real_pos.monoen,
+                polarization=self.pol(self.epuphase.position, self.epumode.position),
+                sample_polarization=self.sample_pol(
+                    self.pol(self.epuphase.position, self.epumode.position)
+                ),
+            )
+        else:
+            ret = self.PseudoPosition(
+                energy=real_pos.monoen,
+                polarization=self.pol(real_pos.epuphase, real_pos.epumode),
+                sample_polarization=self.sample_pol(
+                    self.pol(real_pos.epuphase, real_pos.epumode)
+                ),
+            )
         # print('Finished inverse')
         return ret
 
@@ -217,8 +232,8 @@ class NewEnPos(PseudoPositioner):
         elif self._time_resolution is None:
             self._time_resolution = self._default_time_resolution
 
+        self.energy.set(start - 2).wait()
         self.energy.set(start).wait()
-        time.sleep(0.25)
         self._last_mono_value = start
         self._mono_stop = stop
         self._ready_to_fly = True
