@@ -129,6 +129,7 @@ class EnPos(PseudoPositioner):
     scanlock = Cpt(Signal,value=0,name="Lock Harmonic, Pitch, Grating for scan",kind='config')
     harmonic = Cpt(Signal, value=1, name="EPU Harmonic",kind='config')
     m3offset = Cpt(Signal, value=7.91, name="EPU Harmonic",kind='config')
+    offset_gap = Cpt(Signal, value=0, name="EPU Gap offset",kind='config')
     rotation_motor = None
 
     @pseudo_position_argument
@@ -308,21 +309,30 @@ class EnPos(PseudoPositioner):
         configpath=pathlib.Path(__file__).parent.absolute() / "config",
         **kwargs,
     ):
-        self.gap_fit = np.zeros((10, 10))
-        self.gap_fit[0][:] = [889.981, 222.966, -0.945368, 0.00290731, -5.87973e-06, 7.80556e-09, -6.69661e-12,
-                              3.56679e-15, -1.07195e-18, 1.39775e-22]
-        self.gap_fit[1][:] = [-51.6545, -1.60757, 0.00914746, -2.65003e-05, 4.46303e-08, -4.8934e-11, 3.51531e-14,
-                              -1.4802e-17, 2.70647e-21, 0]
-        self.gap_fit[2][:] = [9.74128, 0.0528884, -0.000270428, 6.71135e-07, -6.68204e-10, 2.71974e-13, -2.82766e-17,
-                              -3.77566e-21, 0, 0]
-        self.gap_fit[3][:] = [-2.94165, -0.00110173, 3.13309e-06, -1.21787e-08, 1.21638e-11, -4.27216e-15, 3.59552e-19,
-                              0, 0, 0]
-        self.gap_fit[4][:] = [0.19242, 2.19545e-05, 6.11159e-08, 4.21707e-11, -6.84942e-14, 1.84302e-17, 0, 0, 0, 0]
-        self.gap_fit[5][:] = [-0.00615458, -9.55015e-07, -1.28929e-09, 4.28363e-13, 3.26302e-17, 0, 0, 0, 0, 0]
-        self.gap_fit[6][:] = [0.000113341, 1.90112e-08, 6.92088e-12, -1.87659e-15, 0, 0, 0, 0, 0, 0]
-        self.gap_fit[7][:] = [-1.22095e-06, -1.5686e-10, -1.09857e-14, 0, 0, 0, 0, 0, 0, 0]
-        self.gap_fit[8][:] = [7.13593e-09, 4.69949e-13, 0, 0, 0, 0, 0, 0, 0, 0]
-        self.gap_fit[9][:] = [-1.74622e-11, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.gap_fit = np.zeros((11, 11))
+        self.gap_fit[0][:] = [-109.23439, 48.887974, -25.535336, -0.099716157, 0.10452779, -0.0057386737, 0.00015888289, -2.582241e-06, 2.4870353e-08, -1.3147576e-10, 2.9405233e-13]
+        self.gap_fit[1][:] = [250.39864, -0.47733852, 0.012449949, -0.0010796728, 2.497728e-06, 7.2883597e-07, -1.7870999e-08, 1.9517629e-10, -1.0798252e-12, 2.5410057e-15, 0]
+        self.gap_fit[2][:] = [-1.2227265, 0.0028271158, -1.7963215e-05, 3.5902654e-06, -9.6213277e-08, 1.0420006e-09, -3.5025223e-12, -8.6412539e-15, 2.9264035e-17, 0, 0]
+        self.gap_fit[3][:] = [0.0043882146, -9.9685485e-06, -5.3238352e-08, -1.8158026e-09, 7.8947862e-11, -1.1666903e-12, 6.0813031e-15, -4.5027883e-18, 0, 0, 0]
+        self.gap_fit[4][:] = [-1.0543938e-05, 2.2714653e-08, 1.0568445e-10, -1.4085311e-12, 7.5255777e-15, 2.288119e-16, -1.7234972e-18, 0, 0, 0, 0]
+        self.gap_fit[5][:] = [1.7000067e-08, -3.2935592e-11, -5.9949116e-14, 6.5244783e-16, -1.9250797e-17, 7.3649105e-20, 0, 0, 0, 0, 0]
+        self.gap_fit[6][:] = [-1.8319003e-11, 3.0233245e-14, 2.5248074e-17, 4.5809878e-19, 1.1459245e-21, 0, 0, 0, 0, 0, 0]
+        self.gap_fit[7][:] = [1.2943972e-14, -1.733981e-17, -1.9649742e-20, -1.474756e-22, 0, 0, 0, 0, 0, 0, 0]
+        self.gap_fit[8][:] = [-5.7141202e-18, 5.7916755e-21, 6.1707757e-24, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.gap_fit[9][:] = [1.4139013e-21, -8.7030212e-25, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.gap_fit[10][:] = [-1.4652341e-25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+        # values for the minimum energy as a function of angle polynomial 10th deg
+        # 80.934 ± 0.0698
+        # -0.91614 ± 0.0446
+        # 0.39635 ± 0.00925
+        # -0.020478 ± 0.000881
+        # 0.00069047 ± 4.54e-05
+        # -1.5413e-05 ± 1.37e-06
+        # 2.1448e-07 ± 2.49e-08
+        # -1.788e-09 ± 2.68e-10
+        # 8.162e-12 ± 1.57e-12
+        # -1.5545e-14 ± 3.88e-15
 
         self.polphase = xr.load_dataarray(configpath / "polphase.nc")
         self.phasepol = xr.DataArray(
@@ -369,11 +379,11 @@ class EnPos(PseudoPositioner):
             gap +=    4.8906e-15 * encalc ** 7
             gap +=   -2.0525e-18 * encalc ** 8
             gap +=    3.6942e-22 * encalc ** 9
-            return max(14000.0,min(100000.0, gap))
+            return max(14000.0,min(100000.0, gap)) + self.offset_gap.get()
         elif 0 <= pol <= 90:
-            return max(14000.0,min(100000.0, self.epu_gap(energy,pol)))
+            return max(14000.0,min(100000.0, self.epu_gap(energy,pol))) + self.offset_gap.get()
         elif 90 < pol <= 180:
-            return max(14000.0,min(100000.0, self.epu_gap(energy,180.0-pol)))
+            return max(14000.0,min(100000.0, self.epu_gap(energy,180.0-pol))) + self.offset_gap.get()
         else:
             return np.nan
 
