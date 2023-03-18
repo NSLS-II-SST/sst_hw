@@ -135,6 +135,7 @@ class EnPos(PseudoPositioner):
     scanlock = Cpt(Signal,value=0,name="Lock Harmonic, Pitch, Grating for scan",kind='config')
     harmonic = Cpt(Signal, value=1, name="EPU Harmonic",kind='config')
     m3offset = Cpt(Signal, value=7.91, name="EPU Harmonic",kind='config')
+    offset_gap = Cpt(Signal, value=0, name="EPU Gap offset",kind='config')
     rotation_motor = None
 
     @pseudo_position_argument
@@ -327,6 +328,18 @@ class EnPos(PseudoPositioner):
         self.gap_fit[9][:] = [1.4139013e-21, -8.7030212e-25, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.gap_fit[10][:] = [-1.4652341e-25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
+        # values for the minimum energy as a function of angle polynomial 10th deg
+        # 80.934 ± 0.0698
+        # -0.91614 ± 0.0446
+        # 0.39635 ± 0.00925
+        # -0.020478 ± 0.000881
+        # 0.00069047 ± 4.54e-05
+        # -1.5413e-05 ± 1.37e-06
+        # 2.1448e-07 ± 2.49e-08
+        # -1.788e-09 ± 2.68e-10
+        # 8.162e-12 ± 1.57e-12
+        # -1.5545e-14 ± 3.88e-15
+
         self.polphase = xr.load_dataarray(configpath / "polphase.nc")
         self.phasepol = xr.DataArray(
             data=self.polphase.pol,
@@ -372,11 +385,11 @@ class EnPos(PseudoPositioner):
             gap +=    4.8906e-15 * encalc ** 7
             gap +=   -2.0525e-18 * encalc ** 8
             gap +=    3.6942e-22 * encalc ** 9
-            return max(14000.0,min(100000.0, gap))
+            return max(14000.0,min(100000.0, gap)) + self.offset_gap.get()
         elif 0 <= pol <= 90:
-            return max(14000.0,min(100000.0, self.epu_gap(energy,pol)))
+            return max(14000.0,min(100000.0, self.epu_gap(energy,pol))) + self.offset_gap.get()
         elif 90 < pol <= 180:
-            return max(14000.0,min(100000.0, self.epu_gap(energy,180.0-pol)))
+            return max(14000.0,min(100000.0, self.epu_gap(energy,180.0-pol))) + self.offset_gap.get()
         else:
             return np.nan
 
