@@ -723,7 +723,7 @@ class EnPos(PseudoPositioner):
         z = 0.0
         for i in np.arange(self.gap_fit.shape[0]):
             for j in np.arange(self.gap_fit.shape[1]):
-                z += self.gap_fit[j, i] * (x ** i) * (y ** j)
+                z += self.gap_fit[j, i] * (x ** j) * (y ** i)
         return z
 
     def phase(self, en, pol, sim=0):
