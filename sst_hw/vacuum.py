@@ -21,6 +21,11 @@ rsoxs_ccg_main = EpicsSignalRO(
     name="Main Chamber Chamber Cold Cathode Gauge",
     kind="hinted",
 )
+rsoxs_ccg_main_val = EpicsSignalRO(
+    "XF:07IDB-VA:2{RSoXS:Main-CCG:1}P-I",
+    name="Main Chamber Chamber Cold Cathode Gauge",
+    kind="hinted",
+)
 rsoxs_pg_main = EpicsSignalRO(
     "XF:07IDB-VA:2{RSoXS:Main-TCG:1}P:Raw-I",
     name="Main Chamber Pirani Gauge",

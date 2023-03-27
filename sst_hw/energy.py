@@ -347,7 +347,7 @@ class EnPos(PseudoPositioner):
         configpath=pathlib.Path(__file__).parent.absolute() / "config",
         **kwargs,
     ):
-        self.gap_fit = [
+        self.gap_fit = np.array([
             [
                 -6.70046527e03,
                 -3.36183042e02,
@@ -636,7 +636,7 @@ class EnPos(PseudoPositioner):
                 0.00000000e00,
                 0.00000000e00,
             ],
-        ]
+        ])
 
         # values for the minimum energy as a function of angle polynomial 10th deg
         # 80.934 ± 0.0698
