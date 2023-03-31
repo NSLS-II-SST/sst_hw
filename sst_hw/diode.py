@@ -68,6 +68,21 @@ Light_control = EpicsSignal(
     name="RSoXS Light Toggle",
     kind="normal",
 )
+MC21_disable = EpicsSignal(
+    "XF:07IDB-CT{DIODE-Local:1}OutPt06:Data-Sel",
+    name="MC21_disable",
+    kind="normal",
+)
+MC20_disable = EpicsSignal(
+    "XF:07IDB-CT{DIODE-Local:1}OutPt07:Data-Sel",
+    name="MC20_disable",
+    kind="normal",
+)
+MC19_disable = EpicsSignal(
+    "XF:07IDB-CT{DIODE-Local:1}OutPt08:Data-Sel",
+    name="MC19_disable",
+    kind="normal",
+)
 
 class ShutterSet(PVPositionerPC):
     readback = Component(EpicsSignal,'-RB')
