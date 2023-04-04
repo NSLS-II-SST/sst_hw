@@ -137,12 +137,12 @@ class EnPos(PseudoPositioner):
         kind="config",
         name="EPU Phase",
     )
-    mir3Pitch = Cpt(
-        FMBHexapodMirrorAxisStandAlonePitch,
-        "XF:07ID1-OP{Mir:M3ABC",
-        kind="config",
-        name="M3Pitch",
-    )
+    # mir3Pitch = Cpt(
+    #     FMBHexapodMirrorAxisStandAlonePitch,
+    #     "XF:07ID1-OP{Mir:M3ABC",
+    #     kind="config",
+    #     name="M3Pitch",
+    # )
     epumode = Cpt(
         EpuMode,
         "SR:C07-ID:G1A{SST1:1-Ax:Phase}Phs:Mode",
@@ -157,7 +157,7 @@ class EnPos(PseudoPositioner):
         Signal, value=0, name="Lock Harmonic, Pitch, Grating for scan", kind="config"
     )
     harmonic = Cpt(Signal, value=1, name="EPU Harmonic", kind="config")
-    m3offset = Cpt(Signal, value=7.91, name="EPU Harmonic", kind="config")
+    #m3offset = Cpt(Signal, value=7.91, name="EPU Harmonic", kind="config")
     offset_gap = Cpt(Signal, value=0, name="EPU Gap offset", kind="config")
     rotation_motor = None
 
@@ -178,7 +178,7 @@ class EnPos(PseudoPositioner):
                     pseudo_pos.energy, pseudo_pos.polarization, self.sim_epu_mode.get()
                 )
             ),
-            mir3Pitch=self.m3pitchcalc(pseudo_pos.energy, self.scanlock.get()),
+            #mir3Pitch=self.m3pitchcalc(pseudo_pos.energy, self.scanlock.get()),
             epumode=self.mode(pseudo_pos.polarization, self.sim_epu_mode.get()),
             # harmonic=self.choose_harmonic(pseudo_pos.energy,pseudo_pos.polarization,self.scanlock.get())
         )
@@ -660,7 +660,7 @@ class EnPos(PseudoPositioner):
         super().__init__(a, **kwargs)
         self.epugap.tolerance.set(3)
         self.epuphase.tolerance.set(10)
-        self.mir3Pitch.tolerance.set(0.01)
+        #self.mir3Pitch.tolerance.set(0.01)
         self.monoen.tolerance.set(0.01)
 
     """
@@ -787,30 +787,30 @@ class EnPos(PseudoPositioner):
             / np.pi
         )
 
-    def m3pitchcalc(self, energy, locked):
-        pitch = self.mir3Pitch.setpoint.get()
-        if locked:
-            return pitch
-        elif "1200" in self.monoen.gratingx.readback.get():
-            pitch = (
-                self.m3offset.get()
-                + 0.038807 * np.exp(-(energy - 100) / 91.942)
-                + 0.050123 * np.exp(-(energy - 100) / 1188.9)
-            )
-        elif "250l/mm" in self.monoen.gratingx.readback.get():
-            pitch = (
-                self.m3offset.get()
-                + 0.022665 * np.exp(-(energy - 90) / 37.746)
-                + 0.024897 * np.exp(-(energy - 90) / 450.9)
-            )
-        elif "RSoXS" in self.monoen.gratingx.readback.get():
-            pitch = (
-                self.m3offset.get()
-                - 0.017669 * np.exp(-(energy - 100) / 41.742)
-                - 0.068631 * np.exp(-(energy - 100) / 302.75)
-            )
+    # def m3pitchcalc(self, energy, locked):
+    #     pitch = self.mir3Pitch.setpoint.get()
+    #     if locked:
+    #         return pitch
+    #     elif "1200" in self.monoen.gratingx.readback.get():
+    #         pitch = (
+    #             self.m3offset.get()
+    #             + 0.038807 * np.exp(-(energy - 100) / 91.942)
+    #             + 0.050123 * np.exp(-(energy - 100) / 1188.9)
+    #         )
+    #     elif "250l/mm" in self.monoen.gratingx.readback.get():
+    #         pitch = (
+    #             self.m3offset.get()
+    #             + 0.022665 * np.exp(-(energy - 90) / 37.746)
+    #             + 0.024897 * np.exp(-(energy - 90) / 450.9)
+    #         )
+    #     elif "RSoXS" in self.monoen.gratingx.readback.get():
+    #         pitch = (
+    #             self.m3offset.get()
+    #             - 0.017669 * np.exp(-(energy - 100) / 41.742)
+    #             - 0.068631 * np.exp(-(energy - 100) / 302.75)
+    #         )
 
-        return round(100 * pitch) / 100
+    #     return round(100 * pitch) / 100
 
     def choose_harmonic(self, energy, pol, locked):
         if locked:
@@ -837,7 +837,7 @@ def base_grating_to_250(mono_en, en):
     # yield from bps.sleep(60)
     # yield from bps.mv(mirror2.user_offset, 0.04) #0.0315)
     # yield from bps.mv(grating.user_offset, -0.0874)#-0.0959)
-    yield from bps.mv(en.m3offset, 7.90)
+    # yield from bps.mv(en.m3offset, 7.90)
     yield from bps.mv(mono_en.cff, 1.385)
     yield from bps.mv(en, 270)
     yield from psh4.open()
@@ -857,7 +857,7 @@ def base_grating_to_1200(mono_en, en):
     # yield from bps.mv(mirror2.user_offset, 0.2044) #0.1962) #0.2052) # 0.1745)  # 8.1264)
     # yield from bps.mv(grating.user_offset, 0.0769) #0.0687) # 0.0777) # 0.047)  # 7.2964)  # 7.2948)#7.2956
     yield from bps.mv(mono_en.cff, 1.7)
-    yield from bps.mv(en.m3offset, 7.791)
+    # yield from bps.mv(en.m3offset, 7.791)
     yield from bps.mv(en, 270)
     yield from psh4.open()
     print("the grating is now at 1200 l/mm")
@@ -876,7 +876,7 @@ def base_grating_to_rsoxs(mono_en, en):
     # yield from bps.mv(mirror2.user_offset, 0.2044) #0.1962) #0.2052) # 0.1745)  # 8.1264)
     # yield from bps.mv(grating.user_offset, 0.0769) #0.0687) # 0.0777) # 0.047)  # 7.2964)  # 7.2948)#7.2956
     # yield from bps.mv(mono_en.cff, 1.7)
-    yield from bps.mv(en.m3offset, 7.87)
+    # yield from bps.mv(en.m3offset, 7.87)
     yield from bps.mv(en, 270)
     yield from psh4.open()
     print("the grating is now at RSoXS 250 l/mm with low higher order")
