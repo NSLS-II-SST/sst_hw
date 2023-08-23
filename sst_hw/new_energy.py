@@ -55,7 +55,7 @@ class FMB_Mono_Grating_Type(PVPositioner):
 class Monochromator(DeadbandMixin, PVPositioner):
     setpoint = Cpt(EpicsSignal, ":ENERGY_SP", kind="normal")
     readback = Cpt(EpicsSignalRO, ":ENERGY_MON", kind="hinted")
-
+    
     grating = Cpt(PrettyMotorFMBO, "GrtP}Mtr", name="Mono Grating", kind="config")
     mirror2 = Cpt(PrettyMotorFMBO, "MirP}Mtr", name="Mono Mirror", kind="config")
     cff = Cpt(EpicsSignal, ":CFF_SP", name="Mono CFF", kind="config", auto_monitor=True)
@@ -164,6 +164,7 @@ class NewEnPos(PseudoPositioner):
         self._fly_move_st = None
         self._default_time_resolution = 0.05
         self._flyer_lag_ev = 0.1
+        self._flyer_gap_lead = 0.0
         self._time_resolution = None
         self._flying = False
 
@@ -297,7 +298,7 @@ class NewEnPos(PseudoPositioner):
             self._flyer_queue.put(event)
             if abs(self._last_mono_value - value) > self._flyer_lag_ev:
                 self._last_mono_value = value
-                self.epugap.set(self.gap(value, self._flyer_pol, False))
+                self.epugap.set(self.gap(value + self._flyer_gap_lead, self._flyer_pol, False))
             time.sleep(self._time_resolution)
         return
 
