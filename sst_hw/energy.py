@@ -16,17 +16,23 @@ import numpy as np
 import xarray as xr
 from sst_funcs.gGrEqns import energy as calc_energy
 from sst_funcs.printing import boxed_text, colored
-from sst_base.motors import PrettyMotorFMBO
+from sst_base.motors import PrettyMotorFMBO, FlyerMixin
 from sst_base.positioners import DeadbandEpicsMotor, DeadbandMixin, PseudoSingle
 from sst_base.mirrors import FMBHexapodMirrorAxisStandAlonePitch
 from sst_hw.shutters import psh4
 from sst_hw.motors import grating, mirror2
 from sst_hw.mirrors import mir3
 
+import time
+from ophyd.status import DeviceStatus, SubscriptionStatus
+import threading
+
+from queue import Queue, Empty
+
 ##############################################################################################
 
 
-class UndulatorMotor(DeadbandEpicsMotor):
+class UndulatorMotor(FlyerMixin,DeadbandEpicsMotor):
     user_setpoint = Cpt(EpicsSignal, "-SP", limits=True)
     # done = Cpt(EpicsSignalRO, ".MOVN")
     # done_value = 0
@@ -51,7 +57,7 @@ class FMB_Mono_Grating_Type(PVPositioner):
     done = Cpt(EpicsSignal, "_AXIS_STS", kind="config")
 
 
-class Monochromator(DeadbandMixin, PVPositioner):
+class Monochromator(FlyerMixin,DeadbandMixin, PVPositioner):
     setpoint = Cpt(EpicsSignal, ":ENERGY_SP", kind="config")
     readback = Cpt(EpicsSignalRO, ":ENERGY_MON", kind="config")
     en_mon = Cpt(EpicsSignalRO, ":READBACK2.A", name="Energy", kind="hinted")
@@ -325,7 +331,7 @@ class EnPos(PseudoPositioner):
         boxed_text(self.name + " location", self.where_sp(), "green", shrink=True)
 
 
-    def preflight(self, start, stop, speed, *args, time_resolution=None):
+    def preflight(self, start, stop, speed, *args, locked=True, time_resolution=None):
         self.monoen.Scan_Start_ev.set(start)
         self.monoen.Scan_Stop_ev.set(stop)
         self.monoen.Scan_Speed_ev.set(speed)
@@ -344,7 +350,9 @@ class EnPos(PseudoPositioner):
         elif self._time_resolution is None:
             self._time_resolution = self._default_time_resolution
 
-        self.energy.set(start - 2).wait()
+        self.energy.set(start + 10).wait()
+        if locked:
+            self.scanlock.set(True).wait()
         self.energy.set(start).wait()
         self._last_mono_value = start
         self._mono_stop = stop
@@ -382,6 +390,7 @@ class EnPos(PseudoPositioner):
         if self._fly_move_st.done:
             self._flying = False
             self._time_resolution = None
+            self.scanlock.set(False).wait()
 
     def kickoff(self):
         kickoff_st = DeviceStatus(device=self)
@@ -393,19 +402,19 @@ class EnPos(PseudoPositioner):
         return kickoff_st
 
     def _aggregate(self):
-        name = self.monoen.readback.name
+        name = 'energy_readback'
         while self._measuring:
             rb = self.monoen.readback.read()
             t = time.time()
-            value = rb[name]['value']
-            ts = rb[name]['timestamp']
+            value = rb[self.monoen.readback.name]['value']
+            ts = rb[self.monoen.readback.name]['timestamp']
             self._flyer_buffer.append(value)
             event = dict()
             event['time'] = t
             event['data'] = dict()
             event['timestamps'] = dict()
-            event['data'][name + '_raw'] = value
-            event['timestamps'][name + '_raw'] = ts
+            event['data'][name] = value
+            event['timestamps'][name] = ts
             self._flyer_queue.put(event)
             if abs(self._last_mono_value - value) > self._flyer_lag_ev:
                 self._last_mono_value = value
@@ -432,8 +441,8 @@ class EnPos(PseudoPositioner):
         return completion_status
 
     def describe_collect(self):
-        dd = dict({self.monoen.readback.name + '_raw': {'source': self.monoen.readback.pvname, 'dtype': 'number', 'shape': []}})
-        return {self.name: dd}
+        dd = dict({"energy_readback": {'source': self.monoen.readback.pvname, 'dtype': 'number', 'shape': []}})
+        return {"energy_readback_monitor": dd}
 
 
     # end class methods, begin internal methods
