@@ -38,16 +38,6 @@ Shutter_enable3 = EpicsSignal(
     name="RSoXS Shutter Toggle Enable In3",
     kind="normal",
 )
-Shutter_control = EpicsSignal(
-    "XF:07IDB-CT{DIODE-Local:1}OutPt01:Data-Sel",
-    name="RSoXS Shutter Toggle",
-    kind="normal",
-)
-Shutter_control = EpicsSignal(
-    "XF:07IDB-CT{DIODE-Local:1}OutPt01:Data-Sel",
-    name="RSoXS Shutter Toggle",
-    kind="normal",
-)
 Shutter_delay = EpicsSignal(
     "XF:07IDB-CT{DIODE-MTO:1}OutDelaySet:2-SP",
     name="RSoXS Shutter Delay (ms)",
@@ -103,6 +93,38 @@ class ShutterSet(PVPositionerPC):
         else:
             return super().set(value, *args, **kwargs)
 
+
+class ShutterWait(EpicsSignal):
+    def set(self, value, *, just_wait=False, **kwargs):
+            """
+            Set the value of the Signal, or just wait for the object to change to a value, either way returning a Status object
+
+            Parameters
+            ----------
+            value : either a set value of a value to wait for
+            just_wait : boolean whether to not set anything but just wait for the value to change to this value
+            
+            Returns
+            -------
+            Status
+
+            """
+            if(just_wait):
+                wait_value = value
+                def watcher(*,old_value,value,**kwargs):
+                    if value == wait_value:
+                        return True
+                    else:
+                        return False
+                return SubscriptionStatus(self, watcher)
+            else:
+                return super().set(value, **kwargs)
+
+Shutter_control = ShutterWait(
+    "XF:07IDB-CT{DIODE-Local:1}OutPt01:Data-Sel",
+    name="RSoXS Shutter Toggle",
+    kind="normal",
+)
 
 
 shutter_open_set = ShutterSet('XF:07IDB-CT{DIODE-MTO:1}Output:2',name = "Shutter Open with Watcher")
