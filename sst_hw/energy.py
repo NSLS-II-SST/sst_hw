@@ -71,24 +71,7 @@ class Monochromator(FlyerMixin,DeadbandMixin, PVPositioner):
     gratingx = Cpt(FMB_Mono_Grating_Type, "GrtX}Mtr", kind="config")
     mirror2x = Cpt(FMB_Mono_Grating_Type, "MirX}Mtr", kind="config")
 
-    Scan_Start_ev = Cpt(
-        EpicsSignal, ":EVSTART_SP", name="MONO scan start energy", kind="config"
-    )
-    Scan_Stop_ev = Cpt(
-        EpicsSignal, ":EVSTOP_SP", name="MONO scan stop energy", kind="config"
-    )
-    Scan_Speed_ev = Cpt(
-        EpicsSignal, ":EVVELO_SP", name="MONO scan speed", kind="config"
-    )
-    Scan_Start = Cpt(
-        EpicsSignal, ":START_CMD.PROC", name="MONO scan start command", kind="config"
-    )
-    Scan_Stop = Cpt(
-        EpicsSignal,
-        ":ENERGY_ST_CMD.PROC",
-        name="MONO scan start command",
-        kind="config",
-    )
+    
 
     scanlock = Cpt(Signal, value=0, name="lock flag for during scans", kind="config")
     done = Cpt(EpicsSignalRO, ":ERDY_STS", kind="config")
@@ -158,6 +141,21 @@ class EnPos(PseudoPositioner):
     )
     harmonic = Cpt(Signal, value=1, name="EPU Harmonic", kind="config")
     offset_gap = Cpt(Signal, value=0, name="EPU Gap offset", kind="config")
+    undulator_dance_enable = Cpt(EpicsSignal,'SR:C07-ID:G1A{SST1:1}MACROControl-SP','Enable Undulator Dance')
+    Scan_Stop_ev = Cpt(EpicsSignal, "SR:C07-ID:G1A{SST1:1}FlyMove-Mtr-SP", name="Energy scan stop energy", kind="config"
+    )
+    Scan_Speed_ev = Cpt(EpicsSignal, "SR:C07-ID:G1A{SST1:1}FlyMove-Speed-SP", name="Energy scan speed", kind="config"
+    )
+    Scan_Start = Cpt(picsSignal, "SR:C07-ID:G1A{SST1:1}FlyMove-Mtr-Go.PROC", name="Energy scan start command", kind="config"
+    )
+    Scan_Stop = Cpt(EpicsSignal,"SR:C07-ID:G1A{SST1:1}FlyMove-Mtr.STOP",
+        name="Energy scan stop command",
+        kind="config",
+    )
+    Scanning = Cpt(EpicsSignal,"SR:C07-ID:G1A{SST1:1}FlyMove-Mtr.MOVN",
+        name="Energy scanning",
+        kind="config",
+    )
     rotation_motor = None
 
 
@@ -332,12 +330,12 @@ class EnPos(PseudoPositioner):
 
 
     def preflight(self, start, stop, speed, *args, locked=True, time_resolution=None):
-        self.monoen.Scan_Start_ev.set(start).wait()
-        self.monoen.Scan_Stop_ev.set(stop).wait()
-        self.monoen.Scan_Speed_ev.set(speed).wait()
-        self.monoen.Scan_Start_ev.set(start).wait()
-        self.monoen.Scan_Stop_ev.set(stop).wait()
-        self.monoen.Scan_Speed_ev.set(speed).wait()
+        #self.monoen.Scan_Start_ev.set(start).wait()
+        self.Scan_Stop_ev.set(stop).wait()
+        self.Scan_Speed_ev.set(speed).wait()
+        #self.monoen.Scan_Start_ev.set(start).wait()
+        self.Scan_Stop_ev.set(stop).wait()
+        self.Scan_Speed_ev.set(speed).wait()
         if len(args) > 0:
             if len(args) % 3 != 0:
                 raise ValueError("args must be start2, stop2, speed2[, start3, stop3, speed3, ...] and must be a multiple of 3")
@@ -357,6 +355,12 @@ class EnPos(PseudoPositioner):
         if locked:
             self.scanlock.set(True).wait()
         self.energy.set(start).wait()
+        # turn on undulator dance mode
+        self.undulator_dance_enable.set(1).wait()
+        # ensure that the polarization is set correctly
+        
+
+
         self._last_mono_value = start
         self._mono_stop = stop
         self._ready_to_fly = True
@@ -370,22 +374,22 @@ class EnPos(PseudoPositioner):
             self._fly_move_st.set_exception(RuntimeError)
         else:
             def check_value(*, old_value, value, **kwargs):
-                if (old_value != 1 and value == 1):
+                if (old_value != 0 and value == 0):
                     try:
                         start, stop, speed = next(self.flight_segments)
-                        self.monoen.Scan_Speed_ev.set(speed).wait()
-                        self.monoen.Scan_Start_ev.set(start).wait()
-                        self.monoen.Scan_Stop_ev.set(stop).wait()
-                        self.monoen.Scan_Speed_ev.set(speed).wait()
-                        self.monoen.Scan_Start.set(1)
+                        self.Scan_Speed_ev.set(speed).wait()
+                        #self.monoen.Scan_Start_ev.set(start).wait()
+                        self.Scan_Stop_ev.set(stop).wait()
+                        self.Scan_Speed_ev.set(speed).wait()
+                        self.Scan_Start.set(1)
                         return False
                     except StopIteration:
                         return True
                 else:
                     return False
 
-            self._fly_move_st = SubscriptionStatus(self.monoen.done, check_value, run=False)
-            self.monoen.Scan_Start.set(1)
+            self._fly_move_st = SubscriptionStatus(self.scanning, check_value, run=False)
+            self.Scan_Start.set(1)
             self._flying = True
             self._ready_to_fly = False
         return self._fly_move_st
@@ -420,9 +424,9 @@ class EnPos(PseudoPositioner):
             event['data'][name] = value
             event['timestamps'][name] = ts
             self._flyer_queue.put(event)
-            if abs(self._last_mono_value - value) > self._flyer_lag_ev:
-                self._last_mono_value = value
-                self.epugap.set(self.gap(value + self._flyer_gap_lead, self._flyer_pol, False))
+            #if abs(self._last_mono_value - value) > self._flyer_lag_ev:
+            #    self._last_mono_value = value
+            #    self.epugap.set(self.gap(value + self._flyer_gap_lead, self._flyer_pol, False))
             time.sleep(self._time_resolution)
         return
 
