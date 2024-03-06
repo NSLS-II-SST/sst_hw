@@ -141,18 +141,18 @@ class EnPos(PseudoPositioner):
     )
     harmonic = Cpt(Signal, value=1, name="EPU Harmonic", kind="config")
     offset_gap = Cpt(Signal, value=0, name="EPU Gap offset", kind="config")
-    undulator_dance_enable = Cpt(EpicsSignal,'SR:C07-ID:G1A{SST1:1}MACROControl-SP','Enable Undulator Dance')
+    undulator_dance_enable = Cpt(EpicsSignal,'SR:C07-ID:G1A{SST1:1}MACROControl-RB',write_pv='SR:C07-ID:G1A{SST1:1}MACROControl-SP',name='Enable Undulator Dance')
     Scan_Stop_ev = Cpt(EpicsSignal, "SR:C07-ID:G1A{SST1:1}FlyMove-Mtr-SP", name="Energy scan stop energy", kind="config"
     )
     Scan_Speed_ev = Cpt(EpicsSignal, "SR:C07-ID:G1A{SST1:1}FlyMove-Speed-SP", name="Energy scan speed", kind="config"
     )
-    Scan_Start = Cpt(picsSignal, "SR:C07-ID:G1A{SST1:1}FlyMove-Mtr-Go.PROC", name="Energy scan start command", kind="config"
+    Scan_Start = Cpt(EpicsSignal, "SR:C07-ID:G1A{SST1:1}FlyMove-Mtr-Go.PROC", name="Energy scan start command", kind="config"
     )
     Scan_Stop = Cpt(EpicsSignal,"SR:C07-ID:G1A{SST1:1}FlyMove-Mtr.STOP",
         name="Energy scan stop command",
         kind="config",
     )
-    Scanning = Cpt(EpicsSignal,"SR:C07-ID:G1A{SST1:1}FlyMove-Mtr.MOVN",
+    scanning = Cpt(EpicsSignal,"SR:C07-ID:G1A{SST1:1}FlyMove-Mtr.MOVN",
         name="Energy scanning",
         kind="config",
     )
@@ -356,7 +356,10 @@ class EnPos(PseudoPositioner):
             self.scanlock.set(True).wait()
         self.energy.set(start).wait()
         # turn on undulator dance mode
+        time.sleep(3)
+        print('turning on undulator dance mode')
         self.undulator_dance_enable.set(1).wait()
+        #bps.sleep(5)
         # ensure that the polarization is set correctly
         
 
@@ -374,14 +377,18 @@ class EnPos(PseudoPositioner):
             self._fly_move_st.set_exception(RuntimeError)
         else:
             def check_value(*, old_value, value, **kwargs):
-                if (old_value != 0 and value == 0):
+                if (old_value != 0 and value == 0): # was moving, but not moving anymore
                     try:
+                        print('got to stopping point')
                         start, stop, speed = next(self.flight_segments)
-                        self.Scan_Speed_ev.set(speed).wait()
-                        #self.monoen.Scan_Start_ev.set(start).wait()
                         self.Scan_Stop_ev.set(stop).wait()
                         self.Scan_Speed_ev.set(speed).wait()
-                        self.Scan_Start.set(1)
+                        self.Scan_Stop_ev.set(stop).wait()
+                        self.Scan_Speed_ev.set(speed).wait()
+                        print(f'starting next step to {stop}eV at {speed}eV/sec')
+                        time.sleep(1)
+                        #self.Scan_Start.set(1).wait()
+                        self.Scan_Start.set(1).wait()
                         return False
                     except StopIteration:
                         return True
@@ -389,6 +396,7 @@ class EnPos(PseudoPositioner):
                     return False
 
             self._fly_move_st = SubscriptionStatus(self.scanning, check_value, run=False)
+            print('beginning the undulator dance')
             self.Scan_Start.set(1)
             self._flying = True
             self._ready_to_fly = False
@@ -551,10 +559,10 @@ class EnPos(PseudoPositioner):
         )
         self.rotation_motor = rotation_motor
         super().__init__(a, **kwargs)
-        self.epugap.tolerance.set(3).wait()
-        self.epuphase.tolerance.set(10).wait()
+        #self.epugap.tolerance.set(3).wait()
+        #self.epuphase.tolerance.set(10).wait()
         #self.mir3Pitch.tolerance.set(0.01)
-        self.monoen.tolerance.set(0.01).wait()
+        #self.monoen.tolerance.set(0.01).wait()
         self._ready_to_fly = False
         self._fly_move_st = None
         self._default_time_resolution = 0.05
