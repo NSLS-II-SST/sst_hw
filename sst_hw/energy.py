@@ -8,7 +8,7 @@ from ophyd import (
     SoftPositioner,
     Signal,
 )
-from ophyd import Component as Cpt
+from ophyd import Component as Cpt, Device
 import bluesky.plan_stubs as bps
 from ophyd.pseudopos import pseudo_position_argument, real_position_argument
 import pathlib
@@ -94,7 +94,66 @@ class Monochromator(FlyerMixin,DeadbandMixin, PVPositioner):
 
 # mono_en= Monochromator('XF:07ID1-OP{Mono:PGM1-Ax:', name='Monochromator Energy',kind='normal')
 
+class FlyControl(Device):
+    undulator_dance_enable = Cpt(EpicsSignal,'MACROControl-RB',write_pv='MACROControl-SP',name='Enable Undulator Dance')
+    flymove_stop_ev = Cpt(EpicsSignal, "FlyMove-Mtr-SP", name="Energy scan stop energy", kind="config")
+    flymove_speed_ev = Cpt(EpicsSignal, "FlyMove-Speed-SP", name="Energy scan speed", kind="config")
+    flymove_start = Cpt(EpicsSignal, "FlyMove-Mtr-Go.PROC", name="Energy scan start command", kind="config")
+    flymove_stop = Cpt(EpicsSignal,"FlyMove-Mtr.STOP", name="Energy scan stop command", kind="config")
+    flymove_moving = Cpt(EpicsSignal, "FlyMove-Mtr.MOVN", name="en_flymove_moving", kind="config")
+    scan_start_ev = Cpt(EpicsSignal, "EScanFirst-SP", name="en_scan_start", kind="config")
+    scan_stop_ev = Cpt(EpicsSignal, "EScanLast-SP", name="en_scan_stop", kind="config")
+    scan_speed_ev = Cpt(EpicsSignal, "EScan-Speed-SP", name="en_scan_speed", kind="config")
+    scan_trigger_width = Cpt(EpicsSignal, "EScanTriggerWidth-RB", write_pv="EScanTriggerWidth-SP", name="trigger_width", kind="config")
+    scan_trigger_n = Cpt(EpicsSignal, "EScanNTriggers-RB", write_pv="EScanNTriggers-SP", name="num_triggers", kind="config")
+    scan_start_go = Cpt(EpicsSignal, "FlyScan-Mtr-Go.PROC", name="scan_start", kind="config")
+    scanning = Cpt(EpicsSignal,"FlyScan-Mtr.MOVN", name="scan_moving", kind="config")
 
+    def enable_undulator_sync(self):
+        # Read status
+        status = self.undulator_dance_enable.get()
+        def check_value(*, old_value, value, **kwargs):
+            if int(value) & 4:
+                return True
+            else:
+                return False
+            
+        print('turning on undulator dance mode')
+        st = SubscriptionStatus(self.undulator_dance_enable, check_value, run=True)
+        self.undulator_dance_enable.set(1).wait()
+        return st
+
+    
+    def flymove(self, start, speed=5):
+        self.enable_undulator_sync().wait()
+        self.flymove_stop_ev.set(start).wait()
+        self.flymove_speed_ev.set(speed).wait()
+        def check_value(* old_value, value, **kwargs):
+            return (old_value != 0 and value == 0)
+
+        self.flymove_start.set(1).wait()
+        move_st = SubscriptionStatus(self.flymove_moving, check_value, run=False)
+        return move_st
+            
+    def scan_setup(self, start, stop, speed):
+        self.scan_start_ev.set(start).wait()
+        self.scan_stop_ev.set(stop).wait()
+        self.scan_speed_ev.set(speed).wait()
+        scan_range = stop - start
+        trig_width = self.scan_trigger_width.get()
+        # Not relevant yet, but required for scan
+        ntrig = scan_range//(2*trig_width)
+        self.scan_trigger_width.set(ntrig).wait()
+
+    def scan_start(self):
+        self.enable_undulator_sync().wait()
+        self.scan_start_go.set(1).wait()
+        def check_value(*, old_value, value, **kwargs):
+            if old_value != 0 and value == 0:
+                return True
+        fly_move_st = SubscriptionStatus(self.scanning, check_value, run=False)
+        return fly_move_st
+    
 class EnPos(PseudoPositioner):
     """Energy pseudopositioner class.
     Parameters:
@@ -139,23 +198,9 @@ class EnPos(PseudoPositioner):
     scanlock = Cpt(
         Signal, value=0, name="Lock Harmonic, Pitch, Grating for scan", kind="config"
     )
+    flycontrol = Cpt(FlyControl, "SR:C07-ID:G1A{SST1:1}", name="FlyscanControl", kind="config")
     harmonic = Cpt(Signal, value=1, name="EPU Harmonic", kind="config")
     offset_gap = Cpt(Signal, value=0, name="EPU Gap offset", kind="config")
-    undulator_dance_enable = Cpt(EpicsSignal,'SR:C07-ID:G1A{SST1:1}MACROControl-RB',write_pv='SR:C07-ID:G1A{SST1:1}MACROControl-SP',name='Enable Undulator Dance')
-    Scan_Stop_ev = Cpt(EpicsSignal, "SR:C07-ID:G1A{SST1:1}FlyMove-Mtr-SP", name="Energy scan stop energy", kind="config"
-    )
-    Scan_Speed_ev = Cpt(EpicsSignal, "SR:C07-ID:G1A{SST1:1}FlyMove-Speed-SP", name="Energy scan speed", kind="config"
-    )
-    Scan_Start = Cpt(EpicsSignal, "SR:C07-ID:G1A{SST1:1}FlyMove-Mtr-Go.PROC", name="Energy scan start command", kind="config"
-    )
-    Scan_Stop = Cpt(EpicsSignal,"SR:C07-ID:G1A{SST1:1}FlyMove-Mtr.STOP",
-        name="Energy scan stop command",
-        kind="config",
-    )
-    scanning = Cpt(EpicsSignal,"SR:C07-ID:G1A{SST1:1}FlyMove-Mtr.MOVN",
-        name="Energy scanning",
-        kind="config",
-    )
     rotation_motor = None
 
 
@@ -215,114 +260,33 @@ class EnPos(PseudoPositioner):
             "\nCFF : {}"
             "\nVLS : {}"
         ).format(
-            colored(
-                "{:.2f}".format(self.monoen.setpoint.get()).rstrip("0").rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.monoen.readback.get()).rstrip("0").rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.epugap.user_setpoint.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.epugap.user_readback.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.epuphase.user_setpoint.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.epuphase.user_readback.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.epumode.setpoint.get()).rstrip("0").rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.epumode.readback.get()).rstrip("0").rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.monoen.grating.user_setpoint.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.monoen.grating.user_readback.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
-            colored(
-                self.monoen.gratingx.setpoint.get(),
-                "yellow",
-            ),
-            colored(
-                self.monoen.gratingx.readback.get(),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.monoen.mirror2.user_setpoint.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.monoen.mirror2.user_readback.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
-            colored(
-                self.monoen.mirror2x.setpoint.get(),
-                "yellow",
-            ),
-            colored(
-                self.monoen.mirror2x.readback.get(),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.monoen.cff.get()).rstrip("0").rstrip("."), "yellow"
-            ),
-            colored(
-                "{:.2f}".format(self.monoen.vls.get()).rstrip("0").rstrip("."), "yellow"
-            ),
+            colored("{:.2f}".format(self.monoen.setpoint.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.monoen.readback.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.epugap.user_setpoint.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.epugap.user_readback.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.epuphase.user_setpoint.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.epuphase.user_readback.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.epumode.setpoint.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.epumode.readback.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.monoen.grating.user_setpoint.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.monoen.grating.user_readback.get()).rstrip("0").rstrip("."), "yellow"),
+            colored(self.monoen.gratingx.setpoint.get(), "yellow"),
+            colored(self.monoen.gratingx.readback.get(), "yellow"),
+            colored("{:.2f}".format(self.monoen.mirror2.user_setpoint.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.monoen.mirror2.user_readback.get()).rstrip("0").rstrip("."), "yellow"),
+            colored(self.monoen.mirror2x.setpoint.get(), "yellow"),
+            colored(self.monoen.mirror2x.readback.get(), "yellow"),
+            colored("{:.2f}".format(self.monoen.cff.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.monoen.vls.get()).rstrip("0").rstrip("."), "yellow"),
         )
 
     def where(self):
         return (
             "Beamline Energy : {}\nPolarization : {}\nSample Polarization : {}"
         ).format(
-            colored(
-                "{:.2f}".format(self.monoen.readback.get()).rstrip("0").rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.polarization.readback.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
-            colored(
-                "{:.2f}".format(self.sample_polarization.readback.get())
-                .rstrip("0")
-                .rstrip("."),
-                "yellow",
-            ),
+            colored("{:.2f}".format(self.monoen.readback.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.polarization.readback.get()).rstrip("0").rstrip("."), "yellow"),
+            colored("{:.2f}".format(self.sample_polarization.readback.get()).rstrip("0").rstrip("."), "yellow"),
         )
 
     def wh(self):
@@ -330,12 +294,7 @@ class EnPos(PseudoPositioner):
 
 
     def preflight(self, start, stop, speed, *args, locked=True, time_resolution=None):
-        #self.monoen.Scan_Start_ev.set(start).wait()
-        self.Scan_Stop_ev.set(stop).wait()
-        self.Scan_Speed_ev.set(speed).wait()
-        #self.monoen.Scan_Start_ev.set(start).wait()
-        self.Scan_Stop_ev.set(stop).wait()
-        self.Scan_Speed_ev.set(speed).wait()
+
         if len(args) > 0:
             if len(args) % 3 != 0:
                 raise ValueError("args must be start2, stop2, speed2[, start3, stop3, speed3, ...] and must be a multiple of 3")
@@ -351,19 +310,14 @@ class EnPos(PseudoPositioner):
         elif self._time_resolution is None:
             self._time_resolution = self._default_time_resolution
 
-        self.energy.set(start + 10).wait()
         if locked:
             self.scanlock.set(True).wait()
+            
+        self.flycontrol.scan_setup(start, stop, speed)
+
+        # flymove currently unreliable
+        # self.flycontrol.flymove(start, speed=5).wait()
         self.energy.set(start).wait()
-        # turn on undulator dance mode
-        time.sleep(3)
-        print('turning on undulator dance mode')
-        self.undulator_dance_enable.set(1).wait()
-        #bps.sleep(5)
-        # ensure that the polarization is set correctly
-        
-
-
         self._last_mono_value = start
         self._mono_stop = stop
         self._ready_to_fly = True
@@ -381,23 +335,20 @@ class EnPos(PseudoPositioner):
                     try:
                         print('got to stopping point')
                         start, stop, speed = next(self.flight_segments)
-                        self.Scan_Stop_ev.set(stop).wait()
-                        self.Scan_Speed_ev.set(speed).wait()
-                        self.Scan_Stop_ev.set(stop).wait()
-                        self.Scan_Speed_ev.set(speed).wait()
+                        self.flycontrol.scan_setup(start, stop, speed).wait()
                         print(f'starting next step to {stop}eV at {speed}eV/sec')
-                        time.sleep(1)
-                        #self.Scan_Start.set(1).wait()
-                        self.Scan_Start.set(1).wait()
+                        self.flycontrol.scan_start()
                         return False
                     except StopIteration:
                         return True
                 else:
                     return False
 
-            self._fly_move_st = SubscriptionStatus(self.scanning, check_value, run=False)
+                
             print('beginning the undulator dance')
-            self.Scan_Start.set(1)
+            # Need our own check_value that will keep flying until there are no more flight segments left
+            self._fly_move_st = SubscriptionStatus(self.flycontrol.scanning, check_value, run=False)
+            self.flycontrol.scan_start()
             self._flying = True
             self._ready_to_fly = False
         return self._fly_move_st
@@ -410,6 +361,9 @@ class EnPos(PseudoPositioner):
 
     def kickoff(self):
         kickoff_st = DeviceStatus(device=self)
+        if self._time_resolution is None:
+            self._time_resolution = self._default_time_resolution
+
         self._flyer_queue = Queue()
         self._measuring = True
         self._flyer_buffer = []
@@ -568,7 +522,7 @@ class EnPos(PseudoPositioner):
         self._default_time_resolution = 0.05
         self._flyer_lag_ev = 0.1
         self._flyer_gap_lead = 0.0
-        self._time_resolution = None
+        self._time_resolution = self._default_time_resolution
         self._flying = False
     """
     def stage(self):
