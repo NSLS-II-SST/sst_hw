@@ -513,10 +513,10 @@ class EnPos(PseudoPositioner):
         )
         self.rotation_motor = rotation_motor
         super().__init__(a, **kwargs)
-        #self.epugap.tolerance.set(3).wait()
-        #self.epuphase.tolerance.set(10).wait()
-        #self.mir3Pitch.tolerance.set(0.01)
-        #self.monoen.tolerance.set(0.01).wait()
+        self.epugap.tolerance.set(3).wait()
+        self.epuphase.tolerance.set(10).wait()
+        # self.mir3Pitch.tolerance.set(0.01)
+        self.monoen.tolerance.set(0.01).wait()
         self._ready_to_fly = False
         self._fly_move_st = None
         self._default_time_resolution = 0.05
