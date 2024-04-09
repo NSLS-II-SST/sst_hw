@@ -354,8 +354,10 @@ class EnPos(PseudoPositioner):
             self._time_resolution = self._default_time_resolution
 
         self.energy.set(start + 10).wait()
+        self.energy.set(start + 10).wait()
         if locked:
             self.scanlock.set(True).wait()
+        self.energy.set(start).wait()
         self.energy.set(start).wait()
         self._last_mono_value = start
         self._mono_stop = stop
@@ -393,7 +395,7 @@ class EnPos(PseudoPositioner):
     def land(self):
         if self._fly_move_st.done:
             self._flying = False
-            self._time_resolution = None
+            self._time_resolution = self._default_time_resolution
             self.scanlock.set(False).wait()
 
     def kickoff(self):
