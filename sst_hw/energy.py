@@ -140,10 +140,12 @@ class FlyControl(Device):
         self.scan_stop_ev.set(stop).wait()
         self.scan_speed_ev.set(speed).wait()
         scan_range = stop - start
+        self.scan_trigger_width.set(0.1).wait()
         trig_width = self.scan_trigger_width.get()
         # Not relevant yet, but required for scan
-        ntrig = scan_range//(2*trig_width)
-        self.scan_trigger_width.set(ntrig).wait()
+        ntrig = np.abs(scan_range//(2*trig_width))
+        print(f'number of triggers : {ntrig}')
+        self.scan_trigger_n.set(ntrig).wait()
 
     def scan_start(self):
         self.enable_undulator_sync().wait()
