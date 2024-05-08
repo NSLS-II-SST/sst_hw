@@ -80,6 +80,26 @@ class Monochromator(FlyerMixin,DeadbandMixin, PVPositioner):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+    
+    def min_energy(self):
+        #TODO: return the minimum energy for the current grating
+        if '250' in self.gratingx.setpoint.get():
+            return 70
+        elif '1200' in self.gratingx.setpoint.get():
+            return 100
+        elif 'rsoxs' in self.gratingx.setpoint.get().lower():
+            return 70
+        return nan
+
+    def max_energy(self):
+         #TODO: return the maximum energy for the current grating
+        if '250' in self.gratingx.setpoint.get():
+            return 1200
+        elif '1200' in self.gratingx.setpoint.get():
+            return 2200
+        elif 'rsoxs' in self.gratingx.setpoint.get().lower():
+            return 1200
+        return nan
 
     # def _setup_move(self, position):
     #     """Move and do not wait until motion is complete (asynchronous)"""
@@ -117,6 +137,14 @@ class FlyControl(Device):
                 return True
             else:
                 return False
+        
+        # TODO: this is the place to add the polarization updating... 
+        # read the set polarization from the energy device
+        # calculate the 1d spline values that are relevant for this polarization
+            # the energy device should return these values (exactly 25 reasonably placed points of gap and energy)
+        # set the spline values into the undulator settings
+        # calculate spline execute in the undulator
+        # check that "spline ok" is true before continuing, else raise an error
             
         print('turning on undulator dance mode')
         st = SubscriptionStatus(self.undulator_dance_enable, check_value, run=True)
@@ -658,7 +686,14 @@ class EnPos(PseudoPositioner):
             return 1
         else:
             return 3
-
+    def get_gap_en_spline(self):
+        
+        #TODO: add spline calculation for energy range (relevant for the grating)
+        minen = self.monoen.min_energy()
+        maxen = self.monoen.max_energy()
+        ens = np.linspace(minen, maxen, 25)
+        gaps = [self.gap(energy,self.polarization.setpoint.get(),True,False) for energy in ens]
+        return ens, gaps
 
 def base_set_polarization(pol, en):
     yield from bps.mv(en.polarization, pol)
