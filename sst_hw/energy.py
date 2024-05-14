@@ -129,6 +129,11 @@ class FlyControl(Device):
     scan_start_go = Cpt(EpicsSignal, "FlyScan-Mtr-Go.PROC", name="scan_start", kind="config")
     scanning = Cpt(EpicsSignal,"FlyScan-Mtr.MOVN", name="scan_moving", kind="config")
 
+    LUT_en = Cpt(EpicsSignal, 'FlyLUT-Energy-RB',write_pv= "FlyLUT-Energy-SP", name="Flying undulator lookup table energy", kind="config")
+    LUT_gap = Cpt(EpicsSignal, 'FlyLUT-Gap-RB',write_pv= "FlyLUT-Gap-SP", name="Flying undulator lookup table gap", kind="config")
+    LUT_calc = Cpt(EpicsSignal, "CalculateSpline.PROC", name="Flying Undulator Calculate Spline", kind="config")
+    LUT_ok = Cpt(EpicsSignal, "FlySpline-Ok-RB", name="Flying Undulator Spline OK", kind="config")
+    
     def enable_undulator_sync(self):
         # Read status
         status = self.undulator_dance_enable.get()
@@ -691,7 +696,7 @@ class EnPos(PseudoPositioner):
         #TODO: add spline calculation for energy range (relevant for the grating)
         minen = self.monoen.min_energy()
         maxen = self.monoen.max_energy()
-        ens = np.linspace(minen, maxen, 25)
+        ens = np.linspace(minen, maxen, 20)
         gaps = [self.gap(energy,self.polarization.setpoint.get(),True,False) for energy in ens]
         return ens, gaps
 
