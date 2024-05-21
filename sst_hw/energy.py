@@ -24,7 +24,7 @@ from sst_hw.motors import grating, mirror2
 from sst_hw.mirrors import mir3
 
 import time
-from ophyd.status import DeviceStatus, SubscriptionStatus
+from ophyd.status import DeviceStatus, SubscriptionStatus, UnknownStatusFailure
 import threading
 
 from queue import Queue, Empty
@@ -132,8 +132,10 @@ class FlyControl(Device):
     LUT_en = Cpt(EpicsSignal, 'FlyLUT-Energy-RB',write_pv= "FlyLUT-Energy-SP", name="Flying undulator lookup table energy", kind="config")
     LUT_gap = Cpt(EpicsSignal, 'FlyLUT-Gap-RB',write_pv= "FlyLUT-Gap-SP", name="Flying undulator lookup table gap", kind="config")
     LUT_calc = Cpt(EpicsSignal, "CalculateSpline.PROC", name="Flying Undulator Calculate Spline", kind="config")
-    LUT_ok = Cpt(EpicsSignal, "FlySpline-Ok-RB", name="Flying Undulator Spline OK", kind="config")
-    
+    LUT_ok = Cpt(EpicsSignal, "FlySplineOK-RB", name="Flying Undulator Spline OK", kind="config")
+    flyer_pol = 0 # default polarization is 0
+
+
     def enable_undulator_sync(self):
         # Read status
         status = self.undulator_dance_enable.get()
@@ -143,30 +145,37 @@ class FlyControl(Device):
             else:
                 return False
         
-        # TODO: this is the place to add the polarization updating... 
-        # read the set polarization from the energy device
-        # calculate the 1d spline values that are relevant for this polarization
-            # the energy device should return these values (exactly 25 reasonably placed points of gap and energy)
-        # set the spline values into the undulator settings
-        # calculate spline execute in the undulator
-        # check that "spline ok" is true before continuing, else raise an error
-            
+
         print('turning on undulator dance mode')
         st = SubscriptionStatus(self.undulator_dance_enable, check_value, run=True)
         self.undulator_dance_enable.set(1).wait()
         return st
-
     
-    def flymove(self, start, speed=5):
-        self.enable_undulator_sync().wait()
-        self.flymove_stop_ev.set(start).wait()
-        self.flymove_speed_ev.set(speed).wait()
-        def check_value(* old_value, value, **kwargs):
-            return (old_value != 0 and value == 0)
+    def disable_undulator_sync(self):
+        # Read status
+        status = self.undulator_dance_enable.get()
+        def check_value(*, old_value, value, **kwargs):
+            if int(value) & 10:
+                return True
+            else:
+                return False
+        
 
-        self.flymove_start.set(1).wait()
-        move_st = SubscriptionStatus(self.flymove_moving, check_value, run=False)
-        return move_st
+        print('turning off undulator dance mode')
+        st = SubscriptionStatus(self.undulator_dance_enable, check_value, run=True)
+        self.undulator_dance_enable.set(0).wait()
+        return st
+    
+ #   def flymove(self, start, speed=5):
+ #       self.enable_undulator_sync().wait()
+ #       self.flymove_stop_ev.set(start).wait()
+ #       self.flymove_speed_ev.set(speed).wait()
+ #       def check_value(* old_value, value, **kwargs):
+ #           return (old_value != 0 and value == 0)
+
+ #       self.flymove_start.set(1).wait()
+ #       move_st = SubscriptionStatus(self.flymove_moving, check_value, run=False)
+ #       return move_st
             
     def scan_setup(self, start, stop, speed):
         self.scan_start_ev.set(start).wait()
@@ -181,7 +190,7 @@ class FlyControl(Device):
         self.scan_trigger_n.set(ntrig).wait()
 
     def scan_start(self):
-        self.enable_undulator_sync().wait()
+        
         self.scan_start_go.set(1).wait()
         def check_value(*, old_value, value, **kwargs):
             if old_value != 0 and value == 0:
@@ -329,7 +338,7 @@ class EnPos(PseudoPositioner):
 
 
     def preflight(self, start, stop, speed, *args, locked=True, time_resolution=None):
-
+        print('starting preflight')
         if len(args) > 0:
             if len(args) % 3 != 0:
                 raise ValueError("args must be start2, stop2, speed2[, start3, stop3, speed3, ...] and must be a multiple of 3")
@@ -337,22 +346,43 @@ class EnPos(PseudoPositioner):
                 self.flight_segments = ((args[3*n], args[3*n + 1], args[3*n + 2]) for n in range(len(args)//3))
         else:
             self.flight_segments = iter(())
-
-        self._flyer_pol = self.polarization.setpoint.get()
+        print('setting up scan parameters')
+        
 
         if time_resolution is not None:
             self._time_resolution = time_resolution
         elif self._time_resolution is None:
             self._time_resolution = self._default_time_resolution
 
-        if locked:
-            self.scanlock.set(True).wait()
-            
+        #if locked:
+        #    self.scanlock.set(True).wait()
+        
+        # self.energy.set(start).wait()
+        
+        print('setting up spline for undulator scanning')
+        # update spline to current polarization setting
+        ens,gaps = self.get_gap_en_spline()
+        try:
+            self.flycontrol.LUT_en.set(ens,timeout=1).wait()
+        except UnknownStatusFailure:
+            pass
+        try:
+            self.flycontrol.LUT_gap.set(gaps,timeout=1).wait()
+        except UnknownStatusFailure:
+            pass
+        try:
+            self.flycontrol.LUT_calc.set(1,timeout=1).wait()
+        except UnknownStatusFailure:
+            pass
+        if not self.flycontrol.LUT_ok.get():
+            raise ValueError('spline calculation not good')
+        
+        print('setting up scan parameters')
+        # input the scan parameters
         self.flycontrol.scan_setup(start, stop, speed)
-
-        # flymove currently unreliable
-        # self.flycontrol.flymove(start, speed=5).wait()
-        self.energy.set(start).wait()
+        # enable undulator control
+        print('enabling scan control')
+        self.flycontrol.enable_undulator_sync().wait()
         self._last_mono_value = start
         self._mono_stop = stop
         self._ready_to_fly = True
@@ -367,6 +397,8 @@ class EnPos(PseudoPositioner):
         else:
             def check_value(*, old_value, value, **kwargs):
                 if (old_value != 0 and value == 0): # was moving, but not moving anymore
+                # this is triggering too early, before we are near the end energy... 
+                # i think we need a test for if the energy is at the end
                     try:
                         print('got to stopping point')
                         start, stop, speed = next(self.flight_segments)
@@ -393,6 +425,7 @@ class EnPos(PseudoPositioner):
             self._flying = False
             self._time_resolution = None
             self.scanlock.set(False).wait()
+            self.flycontrol.disable_undulator_sync().wait()
 
     def kickoff(self):
         kickoff_st = DeviceStatus(device=self)
