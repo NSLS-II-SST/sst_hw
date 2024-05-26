@@ -127,14 +127,17 @@ class FlyControl(Device):
     scan_trigger_width = Cpt(EpicsSignal, "EScanTriggerWidth-RB", write_pv="EScanTriggerWidth-SP", name="trigger_width", kind="config")
     scan_trigger_n = Cpt(EpicsSignal, "EScanNTriggers-RB", write_pv="EScanNTriggers-SP", name="num_triggers", kind="config")
     scan_start_go = Cpt(EpicsSignal, "FlyScan-Mtr-Go.PROC", name="scan_start", kind="config")
-    scanning = Cpt(EpicsSignal,"FlyScan-Mtr.MOVN", name="scan_moving", kind="config")
+    scan_start_abort = Cpt(EpicsSignal, "FlyScan-Mtr.STOP", name="scan_abort", kind="config")
+    moving = Cpt(EpicsSignal,"FlyScan-Mtr.MOVN", name="scan_moving", kind="config")
+    scanning = Cpt(EpicsSignal,"FlyScan-Running-Sts", name="scanning", kind="config")
+
 
     LUT_en = Cpt(EpicsSignal, 'FlyLUT-Energy-RB',write_pv= "FlyLUT-Energy-SP", name="Flying undulator lookup table energy", kind="config")
     LUT_gap = Cpt(EpicsSignal, 'FlyLUT-Gap-RB',write_pv= "FlyLUT-Gap-SP", name="Flying undulator lookup table gap", kind="config")
     LUT_calc = Cpt(EpicsSignal, "CalculateSpline.PROC", name="Flying Undulator Calculate Spline", kind="config")
     LUT_ok = Cpt(EpicsSignal, "FlySplineOK-RB", name="Flying Undulator Spline OK", kind="config")
     flyer_pol = 0 # default polarization is 0
-
+    flying_check = 0
 
     def enable_undulator_sync(self):
         # Read status
@@ -190,11 +193,32 @@ class FlyControl(Device):
         self.scan_trigger_n.set(ntrig).wait()
 
     def scan_start(self):
-        
-        self.scan_start_go.set(1).wait()
+        #time.sleep(2)
+        print('trying to start scan')
+        self.scan_start_go.put(1)
+        time.sleep(.5)
+        counter = 0
+        while(self.scanning.get() == 0): # this catches one bug where the scan doesn't actually start
+            # but this misses another bug where in the pre-scan process something happens
+            # and the scan stops prematurely before it's even begun...
+            print('scan not started, trying again')
+
+            if counter > 2:
+                self.scan_start_abort.put(1)
+                time.sleep(1)
+                self.scan_start_go.put(1)
+                time.sleep(.5)
+            elif counter > 5:
+                raise RuntimeError('undulator scanning is not starting - please check the undulator software')
+            else:
+                self.scan_start_go.put(1)
+                time.sleep(0.5)
+            counter +=1
+            
         def check_value(*, old_value, value, **kwargs):
             if old_value != 0 and value == 0:
                 return True
+
         fly_move_st = SubscriptionStatus(self.scanning, check_value, run=False)
         return fly_move_st
     
@@ -374,6 +398,7 @@ class EnPos(PseudoPositioner):
             self.flycontrol.LUT_calc.set(1,timeout=1).wait()
         except UnknownStatusFailure:
             pass
+        time.sleep(2)
         if not self.flycontrol.LUT_ok.get():
             raise ValueError('spline calculation not good')
         
@@ -423,9 +448,9 @@ class EnPos(PseudoPositioner):
     def land(self):
         if self._fly_move_st.done:
             self._flying = False
-            self._time_resolution = None
+            #self._time_resolution = None
             self.scanlock.set(False).wait()
-            self.flycontrol.disable_undulator_sync().wait()
+            self.flycontrol.disable_undulator_sync()
 
     def kickoff(self):
         kickoff_st = DeviceStatus(device=self)
