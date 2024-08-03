@@ -194,25 +194,25 @@ class FlyControl(Device):
 
     def scan_start(self):
         #time.sleep(2)
-        print('trying to start scan')
-        self.scan_start_go.put(1)
-        time.sleep(.5)
+        #print('starting segment')
+        self.scan_start_go.set(1).wait()
+        time.sleep(2)
         counter = 0
-        while(self.scanning.get() == 0): # this catches one bug where the scan doesn't actually start
+        while(self.scanning.get() == 0 or self.moving.get() == 0): # this catches one bug where the scan doesn't actually start
             # but this misses another bug where in the pre-scan process something happens
             # and the scan stops prematurely before it's even begun...
-            print('scan not started, trying again')
-
-            if counter > 2:
-                self.scan_start_abort.put(1)
-                time.sleep(1)
+            
+            if counter < 1:
                 self.scan_start_go.put(1)
                 time.sleep(.5)
             elif counter > 5:
                 raise RuntimeError('undulator scanning is not starting - please check the undulator software')
             else:
+                print('scan not started, trying again\n\n\n\n\n\n\n')
+                self.scan_start_abort.put(1)
+                time.sleep(.5)
                 self.scan_start_go.put(1)
-                time.sleep(0.5)
+                time.sleep(.5)
             counter +=1
             
         def check_value(*, old_value, value, **kwargs):
@@ -361,7 +361,7 @@ class EnPos(PseudoPositioner):
         boxed_text(self.name + " location", self.where_sp(), "green", shrink=True)
 
 
-    def preflight(self, start, stop, speed, *args, locked=True, time_resolution=None):
+    def preflight(self, start, stop, speed, *args, shutter_list=[], locked=True, time_resolution=None):
         print('starting preflight')
         if len(args) > 0:
             if len(args) % 3 != 0:
@@ -410,6 +410,9 @@ class EnPos(PseudoPositioner):
         self.flycontrol.enable_undulator_sync().wait()
         self._last_mono_value = start
         self._mono_stop = stop
+        for shutter in shutter_list:
+            shutter.set(1)
+        self.shutter_list = shutter_list
         self._ready_to_fly = True
 
     def fly(self):
@@ -424,14 +427,21 @@ class EnPos(PseudoPositioner):
                 if (old_value != 0 and value == 0): # was moving, but not moving anymore
                 # this is triggering too early, before we are near the end energy... 
                 # i think we need a test for if the energy is at the end
+                    # print('checking for next segment')
+                    #if np.abs(self.energy.readback.get() - self.flycontrol.scan_stop_ev.get()) > 10:
+                    #    raise(RuntimeError("scan didn't seem to actually start"))
                     try:
-                        print('got to stopping point')
+                        print('got to end of segment')
+                        time.sleep(.5)
                         start, stop, speed = next(self.flight_segments)
-                        self.flycontrol.scan_setup(start, stop, speed).wait()
-                        print(f'starting next step to {stop}eV at {speed}eV/sec')
+                        self.flycontrol.scan_setup(start, stop, speed)
+                        time.sleep(2)
+                        print(f'starting next step from {start}eV to {stop}eV at {speed}eV/sec')
                         self.flycontrol.scan_start()
                         return False
                     except StopIteration:
+                        for shutter in self.shutter_list:
+                            shutter.set(0)
                         return True
                 else:
                     return False
@@ -439,18 +449,21 @@ class EnPos(PseudoPositioner):
                 
             print('beginning the undulator dance')
             # Need our own check_value that will keep flying until there are no more flight segments left
-            self._fly_move_st = SubscriptionStatus(self.flycontrol.scanning, check_value, run=False)
             self.flycontrol.scan_start()
+
+            self._fly_move_st = SubscriptionStatus(self.flycontrol.scanning, check_value, run=False)
             self._flying = True
             self._ready_to_fly = False
         return self._fly_move_st
 
     def land(self):
-        if self._fly_move_st.done:
-            self._flying = False
-            #self._time_resolution = None
-            self.scanlock.set(False).wait()
-            self.flycontrol.disable_undulator_sync()
+        if hasattr(self._fly_move_st,'done'):
+            if self._fly_move_st.done:
+                self._flying = False
+                #self._time_resolution = None
+                self.scanlock.set(False).wait()
+                self.flycontrol.disable_undulator_sync()
+                yield from bps.null()
 
     def kickoff(self):
         kickoff_st = DeviceStatus(device=self)
