@@ -1,6 +1,6 @@
 from ophyd import EpicsSignalRO, EpicsSignal
 
-from sst_funcs.printing import run_report
+from nbs_bl.printing import run_report
 
 
 run_report(__file__)

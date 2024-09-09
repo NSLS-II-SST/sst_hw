@@ -14,8 +14,8 @@ from ophyd.pseudopos import pseudo_position_argument, real_position_argument
 import pathlib
 import numpy as np
 import xarray as xr
-from sst_funcs.gGrEqns import energy as calc_energy
-from sst_funcs.printing import boxed_text, colored
+from nbs_bl.gGrEqns import energy as calc_energy
+from nbs_bl.printing import boxed_text, colored
 from sst_base.motors import PrettyMotorFMBO, FlyerMixin
 from sst_base.positioners import DeadbandEpicsMotor, DeadbandMixin, PseudoSingle
 from sst_base.mirrors import FMBHexapodMirrorAxisStandAlonePitch
@@ -49,11 +49,11 @@ class EpuMode(PVPositionerPC):
 class FMB_Mono_Grating_Type(PVPositioner):
     setpoint = Cpt(EpicsSignal, "_TYPE_SP", string=True, kind="config")
     readback = Cpt(EpicsSignal, "_TYPE_MON", string=True, kind="config")
-    actuate = Cpt(EpicsSignal, "_DCPL_CALC.PROC", kind="config")
-    enable = Cpt(EpicsSignal, "_ENA_CMD.PROC", kind="config")
-    kill = Cpt(EpicsSignal, "_KILL_CMD.PROC", kind="config")
-    home = Cpt(EpicsSignal, "_HOME_CMD.PROC", kind="config")
-    clear_encoder_loss = Cpt(EpicsSignal, "_ENC_LSS_CLR_CMD.PROC", kind="config")
+    actuate = Cpt(EpicsSignal, "_DCPL_CALC.PROC")
+    enable = Cpt(EpicsSignal, "_ENA_CMD.PROC")
+    kill = Cpt(EpicsSignal, "_KILL_CMD.PROC")
+    home = Cpt(EpicsSignal, "_HOME_CMD.PROC")
+    clear_encoder_loss = Cpt(EpicsSignal, "_ENC_LSS_CLR_CMD.PROC")
     done = Cpt(EpicsSignal, "_AXIS_STS", kind="config")
 
 
@@ -76,7 +76,7 @@ class Monochromator(FlyerMixin,DeadbandMixin, PVPositioner):
     scanlock = Cpt(Signal, value=0, name="lock flag for during scans", kind="config")
     done = Cpt(EpicsSignalRO, ":ERDY_STS", kind="config")
     done_value = 1
-    stop_signal = Cpt(EpicsSignal, ":ENERGY_ST_CMD", kind="config")
+    stop_signal = Cpt(EpicsSignal, ":ENERGY_ST_CMD")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -98,16 +98,16 @@ class FlyControl(Device):
     undulator_dance_enable = Cpt(EpicsSignal,'MACROControl-RB',write_pv='MACROControl-SP',name='Enable Undulator Dance')
     flymove_stop_ev = Cpt(EpicsSignal, "FlyMove-Mtr-SP", name="Energy scan stop energy", kind="config")
     flymove_speed_ev = Cpt(EpicsSignal, "FlyMove-Speed-SP", name="Energy scan speed", kind="config")
-    flymove_start = Cpt(EpicsSignal, "FlyMove-Mtr-Go.PROC", name="Energy scan start command", kind="config")
-    flymove_stop = Cpt(EpicsSignal,"FlyMove-Mtr.STOP", name="Energy scan stop command", kind="config")
-    flymove_moving = Cpt(EpicsSignal, "FlyMove-Mtr.MOVN", name="en_flymove_moving", kind="config")
+    flymove_start = Cpt(EpicsSignal, "FlyMove-Mtr-Go.PROC", name="Energy scan start command")
+    flymove_stop = Cpt(EpicsSignal,"FlyMove-Mtr.STOP", name="Energy scan stop command")
+    flymove_moving = Cpt(EpicsSignal, "FlyMove-Mtr.MOVN", name="en_flymove_moving")
     scan_start_ev = Cpt(EpicsSignal, "EScanFirst-SP", name="en_scan_start", kind="config")
     scan_stop_ev = Cpt(EpicsSignal, "EScanLast-SP", name="en_scan_stop", kind="config")
     scan_speed_ev = Cpt(EpicsSignal, "EScan-Speed-SP", name="en_scan_speed", kind="config")
     scan_trigger_width = Cpt(EpicsSignal, "EScanTriggerWidth-RB", write_pv="EScanTriggerWidth-SP", name="trigger_width", kind="config")
     scan_trigger_n = Cpt(EpicsSignal, "EScanNTriggers-RB", write_pv="EScanNTriggers-SP", name="num_triggers", kind="config")
-    scan_start_go = Cpt(EpicsSignal, "FlyScan-Mtr-Go.PROC", name="scan_start", kind="config")
-    scanning = Cpt(EpicsSignal,"FlyScan-Mtr.MOVN", name="scan_moving", kind="config")
+    scan_start_go = Cpt(EpicsSignal, "FlyScan-Mtr-Go.PROC", name="scan_start")
+    scanning = Cpt(EpicsSignal,"FlyScan-Mtr.MOVN", name="scan_moving")
 
     def enable_undulator_sync(self):
         # Read status

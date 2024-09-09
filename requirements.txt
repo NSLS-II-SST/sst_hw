@@ -2,4 +2,4 @@ bluesky
 ophyd
 numpy
 sst_base
-sst_funcs
+nbs_bl
