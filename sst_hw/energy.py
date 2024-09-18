@@ -644,7 +644,10 @@ class EnPos(PseudoPositioner):
             return 2
 
     def sample_pol(self, pol):
-        th = self.rotation_motor.user_setpoint.get()
+        if self.rotation_motor is None:
+            th = 0
+        else:
+            th = self.rotation_motor.user_setpoint.get()
         return (
             np.arccos(np.cos(pol * np.pi / 180) * np.sin(th * np.pi / 180))
             * 180
