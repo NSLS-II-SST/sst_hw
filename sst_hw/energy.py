@@ -32,7 +32,7 @@ from queue import Queue, Empty
 ##############################################################################################
 
 
-class UndulatorMotor(FlyerMixin,DeadbandEpicsMotor):
+class UndulatorMotor(FlyerMixin, DeadbandEpicsMotor):
     user_setpoint = Cpt(EpicsSignal, "-SP", limits=True)
     # done = Cpt(EpicsSignalRO, ".MOVN")
     # done_value = 0
@@ -57,7 +57,7 @@ class FMB_Mono_Grating_Type(PVPositioner):
     done = Cpt(EpicsSignal, "_AXIS_STS", kind="config")
 
 
-class Monochromator(FlyerMixin,DeadbandMixin, PVPositioner):
+class Monochromator(FlyerMixin, DeadbandMixin, PVPositioner):
     setpoint = Cpt(EpicsSignal, ":ENERGY_SP", kind="config")
     readback = Cpt(EpicsSignalRO, ":ENERGY_MON", kind="config")
     en_mon = Cpt(EpicsSignalRO, ":READBACK2.A", name="Energy", kind="hinted")
@@ -70,8 +70,6 @@ class Monochromator(FlyerMixin,DeadbandMixin, PVPositioner):
     )
     gratingx = Cpt(FMB_Mono_Grating_Type, "GrtX}Mtr", kind="config")
     mirror2x = Cpt(FMB_Mono_Grating_Type, "MirX}Mtr", kind="config")
-
-    
 
     scanlock = Cpt(Signal, value=0, name="lock flag for during scans", kind="config")
     done = Cpt(EpicsSignalRO, ":ERDY_STS", kind="config")
@@ -94,47 +92,76 @@ class Monochromator(FlyerMixin,DeadbandMixin, PVPositioner):
 
 # mono_en= Monochromator('XF:07ID1-OP{Mono:PGM1-Ax:', name='Monochromator Energy',kind='normal')
 
+
 class FlyControl(Device):
-    undulator_dance_enable = Cpt(EpicsSignal,'MACROControl-RB',write_pv='MACROControl-SP',name='Enable Undulator Dance')
-    flymove_stop_ev = Cpt(EpicsSignal, "FlyMove-Mtr-SP", name="Energy scan stop energy", kind="config")
-    flymove_speed_ev = Cpt(EpicsSignal, "FlyMove-Speed-SP", name="Energy scan speed", kind="config")
-    flymove_start = Cpt(EpicsSignal, "FlyMove-Mtr-Go.PROC", name="Energy scan start command")
-    flymove_stop = Cpt(EpicsSignal,"FlyMove-Mtr.STOP", name="Energy scan stop command")
+    undulator_dance_enable = Cpt(
+        EpicsSignal,
+        "MACROControl-RB",
+        write_pv="MACROControl-SP",
+        name="Enable Undulator Dance",
+    )
+    flymove_stop_ev = Cpt(
+        EpicsSignal, "FlyMove-Mtr-SP", name="Energy scan stop energy", kind="config"
+    )
+    flymove_speed_ev = Cpt(
+        EpicsSignal, "FlyMove-Speed-SP", name="Energy scan speed", kind="config"
+    )
+    flymove_start = Cpt(
+        EpicsSignal, "FlyMove-Mtr-Go.PROC", name="Energy scan start command"
+    )
+    flymove_stop = Cpt(EpicsSignal, "FlyMove-Mtr.STOP", name="Energy scan stop command")
     flymove_moving = Cpt(EpicsSignal, "FlyMove-Mtr.MOVN", name="en_flymove_moving")
-    scan_start_ev = Cpt(EpicsSignal, "EScanFirst-SP", name="en_scan_start", kind="config")
+    scan_start_ev = Cpt(
+        EpicsSignal, "EScanFirst-SP", name="en_scan_start", kind="config"
+    )
     scan_stop_ev = Cpt(EpicsSignal, "EScanLast-SP", name="en_scan_stop", kind="config")
-    scan_speed_ev = Cpt(EpicsSignal, "EScan-Speed-SP", name="en_scan_speed", kind="config")
-    scan_trigger_width = Cpt(EpicsSignal, "EScanTriggerWidth-RB", write_pv="EScanTriggerWidth-SP", name="trigger_width", kind="config")
-    scan_trigger_n = Cpt(EpicsSignal, "EScanNTriggers-RB", write_pv="EScanNTriggers-SP", name="num_triggers", kind="config")
+    scan_speed_ev = Cpt(
+        EpicsSignal, "EScan-Speed-SP", name="en_scan_speed", kind="config"
+    )
+    scan_trigger_width = Cpt(
+        EpicsSignal,
+        "EScanTriggerWidth-RB",
+        write_pv="EScanTriggerWidth-SP",
+        name="trigger_width",
+        kind="config",
+    )
+    scan_trigger_n = Cpt(
+        EpicsSignal,
+        "EScanNTriggers-RB",
+        write_pv="EScanNTriggers-SP",
+        name="num_triggers",
+        kind="config",
+    )
     scan_start_go = Cpt(EpicsSignal, "FlyScan-Mtr-Go.PROC", name="scan_start")
-    scanning = Cpt(EpicsSignal,"FlyScan-Mtr.MOVN", name="scan_moving")
+    scanning = Cpt(EpicsSignal, "FlyScan-Mtr.MOVN", name="scan_moving")
 
     def enable_undulator_sync(self):
         # Read status
         status = self.undulator_dance_enable.get()
+
         def check_value(*, old_value, value, **kwargs):
             if int(value) & 4:
                 return True
             else:
                 return False
-            
-        print('turning on undulator dance mode')
+
+        print("turning on undulator dance mode")
         st = SubscriptionStatus(self.undulator_dance_enable, check_value, run=True)
         self.undulator_dance_enable.set(1).wait()
         return st
 
-    
     def flymove(self, start, speed=5):
         self.enable_undulator_sync().wait()
         self.flymove_stop_ev.set(start).wait()
         self.flymove_speed_ev.set(speed).wait()
-        def check_value(* old_value, value, **kwargs):
-            return (old_value != 0 and value == 0)
+
+        def check_value(*old_value, value, **kwargs):
+            return old_value != 0 and value == 0
 
         self.flymove_start.set(1).wait()
         move_st = SubscriptionStatus(self.flymove_moving, check_value, run=False)
         return move_st
-            
+
     def scan_setup(self, start, stop, speed):
         self.scan_start_ev.set(start).wait()
         self.scan_stop_ev.set(stop).wait()
@@ -143,19 +170,30 @@ class FlyControl(Device):
         self.scan_trigger_width.set(0.1).wait()
         trig_width = self.scan_trigger_width.get()
         # Not relevant yet, but required for scan
-        ntrig = np.abs(scan_range//(2*trig_width))
-        print(f'number of triggers : {ntrig}')
+        ntrig = np.abs(scan_range // (2 * trig_width))
+        print(f"number of triggers : {ntrig}")
         self.scan_trigger_n.set(ntrig).wait()
 
     def scan_start(self):
         self.enable_undulator_sync().wait()
         self.scan_start_go.set(1).wait()
+
         def check_value(*, old_value, value, **kwargs):
             if old_value != 0 and value == 0:
                 return True
+
         fly_move_st = SubscriptionStatus(self.scanning, check_value, run=False)
         return fly_move_st
-    
+
+
+def EnPosFactory(prefix, *, name, beamline=None, **kwargs):
+    if beamline is not None:
+        rotation_motor = beamline.devices["manipr"]
+    else:
+        rotation_motor = None
+    return EnPos(prefix, rotation_motor=rotation_motor, name=name, **kwargs)
+
+
 class EnPos(PseudoPositioner):
     """Energy pseudopositioner class.
     Parameters:
@@ -200,12 +238,12 @@ class EnPos(PseudoPositioner):
     scanlock = Cpt(
         Signal, value=0, name="Lock Harmonic, Pitch, Grating for scan", kind="config"
     )
-    flycontrol = Cpt(FlyControl, "SR:C07-ID:G1A{SST1:1}", name="FlyscanControl", kind="config")
+    flycontrol = Cpt(
+        FlyControl, "SR:C07-ID:G1A{SST1:1}", name="FlyscanControl", kind="config"
+    )
     harmonic = Cpt(Signal, value=1, name="EPU Harmonic", kind="config")
     offset_gap = Cpt(Signal, value=0, name="EPU Gap offset", kind="config")
     rotation_motor = None
-
-
 
     @pseudo_position_argument
     def forward(self, pseudo_pos):
@@ -262,46 +300,119 @@ class EnPos(PseudoPositioner):
             "\nCFF : {}"
             "\nVLS : {}"
         ).format(
-            colored("{:.2f}".format(self.monoen.setpoint.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.monoen.readback.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.epugap.user_setpoint.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.epugap.user_readback.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.epuphase.user_setpoint.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.epuphase.user_readback.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.epumode.setpoint.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.epumode.readback.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.monoen.grating.user_setpoint.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.monoen.grating.user_readback.get()).rstrip("0").rstrip("."), "yellow"),
+            colored(
+                "{:.2f}".format(self.monoen.setpoint.get()).rstrip("0").rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.monoen.readback.get()).rstrip("0").rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.epugap.user_setpoint.get())
+                .rstrip("0")
+                .rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.epugap.user_readback.get())
+                .rstrip("0")
+                .rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.epuphase.user_setpoint.get())
+                .rstrip("0")
+                .rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.epuphase.user_readback.get())
+                .rstrip("0")
+                .rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.epumode.setpoint.get()).rstrip("0").rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.epumode.readback.get()).rstrip("0").rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.monoen.grating.user_setpoint.get())
+                .rstrip("0")
+                .rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.monoen.grating.user_readback.get())
+                .rstrip("0")
+                .rstrip("."),
+                "yellow",
+            ),
             colored(self.monoen.gratingx.setpoint.get(), "yellow"),
             colored(self.monoen.gratingx.readback.get(), "yellow"),
-            colored("{:.2f}".format(self.monoen.mirror2.user_setpoint.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.monoen.mirror2.user_readback.get()).rstrip("0").rstrip("."), "yellow"),
+            colored(
+                "{:.2f}".format(self.monoen.mirror2.user_setpoint.get())
+                .rstrip("0")
+                .rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.monoen.mirror2.user_readback.get())
+                .rstrip("0")
+                .rstrip("."),
+                "yellow",
+            ),
             colored(self.monoen.mirror2x.setpoint.get(), "yellow"),
             colored(self.monoen.mirror2x.readback.get(), "yellow"),
-            colored("{:.2f}".format(self.monoen.cff.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.monoen.vls.get()).rstrip("0").rstrip("."), "yellow"),
+            colored(
+                "{:.2f}".format(self.monoen.cff.get()).rstrip("0").rstrip("."), "yellow"
+            ),
+            colored(
+                "{:.2f}".format(self.monoen.vls.get()).rstrip("0").rstrip("."), "yellow"
+            ),
         )
 
     def where(self):
         return (
             "Beamline Energy : {}\nPolarization : {}\nSample Polarization : {}"
         ).format(
-            colored("{:.2f}".format(self.monoen.readback.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.polarization.readback.get()).rstrip("0").rstrip("."), "yellow"),
-            colored("{:.2f}".format(self.sample_polarization.readback.get()).rstrip("0").rstrip("."), "yellow"),
+            colored(
+                "{:.2f}".format(self.monoen.readback.get()).rstrip("0").rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.polarization.readback.get())
+                .rstrip("0")
+                .rstrip("."),
+                "yellow",
+            ),
+            colored(
+                "{:.2f}".format(self.sample_polarization.readback.get())
+                .rstrip("0")
+                .rstrip("."),
+                "yellow",
+            ),
         )
 
     def wh(self):
         boxed_text(self.name + " location", self.where_sp(), "green", shrink=True)
 
-
     def preflight(self, start, stop, speed, *args, locked=True, time_resolution=None):
 
         if len(args) > 0:
             if len(args) % 3 != 0:
-                raise ValueError("args must be start2, stop2, speed2[, start3, stop3, speed3, ...] and must be a multiple of 3")
+                raise ValueError(
+                    "args must be start2, stop2, speed2[, start3, stop3, speed3, ...] and must be a multiple of 3"
+                )
             else:
-                self.flight_segments = ((args[3*n], args[3*n + 1], args[3*n + 2]) for n in range(len(args)//3))
+                self.flight_segments = (
+                    (args[3 * n], args[3 * n + 1], args[3 * n + 2])
+                    for n in range(len(args) // 3)
+                )
         else:
             self.flight_segments = iter(())
 
@@ -314,7 +425,7 @@ class EnPos(PseudoPositioner):
 
         if locked:
             self.scanlock.set(True).wait()
-            
+
         self.flycontrol.scan_setup(start, stop, speed)
 
         # flymove currently unreliable
@@ -332,13 +443,14 @@ class EnPos(PseudoPositioner):
             self._fly_move_st = DeviceStatus(device=self)
             self._fly_move_st.set_exception(RuntimeError)
         else:
+
             def check_value(*, old_value, value, **kwargs):
-                if (old_value != 0 and value == 0): # was moving, but not moving anymore
+                if old_value != 0 and value == 0:  # was moving, but not moving anymore
                     try:
-                        print('got to stopping point')
+                        print("got to stopping point")
                         start, stop, speed = next(self.flight_segments)
                         self.flycontrol.scan_setup(start, stop, speed).wait()
-                        print(f'starting next step to {stop}eV at {speed}eV/sec')
+                        print(f"starting next step to {stop}eV at {speed}eV/sec")
                         self.flycontrol.scan_start()
                         return False
                     except StopIteration:
@@ -346,10 +458,11 @@ class EnPos(PseudoPositioner):
                 else:
                     return False
 
-                
-            print('beginning the undulator dance')
+            print("beginning the undulator dance")
             # Need our own check_value that will keep flying until there are no more flight segments left
-            self._fly_move_st = SubscriptionStatus(self.flycontrol.scanning, check_value, run=False)
+            self._fly_move_st = SubscriptionStatus(
+                self.flycontrol.scanning, check_value, run=False
+            )
             self.flycontrol.scan_start()
             self._flying = True
             self._ready_to_fly = False
@@ -374,21 +487,21 @@ class EnPos(PseudoPositioner):
         return kickoff_st
 
     def _aggregate(self):
-        name = 'energy_readback'
+        name = "energy_readback"
         while self._measuring:
             rb = self.monoen.readback.read()
             t = time.time()
-            value = rb[self.monoen.readback.name]['value']
-            ts = rb[self.monoen.readback.name]['timestamp']
+            value = rb[self.monoen.readback.name]["value"]
+            ts = rb[self.monoen.readback.name]["timestamp"]
             self._flyer_buffer.append(value)
             event = dict()
-            event['time'] = t
-            event['data'] = dict()
-            event['timestamps'] = dict()
-            event['data'][name] = value
-            event['timestamps'][name] = ts
+            event["time"] = t
+            event["data"] = dict()
+            event["timestamps"] = dict()
+            event["data"][name] = value
+            event["timestamps"][name] = ts
             self._flyer_queue.put(event)
-            #if abs(self._last_mono_value - value) > self._flyer_lag_ev:
+            # if abs(self._last_mono_value - value) > self._flyer_lag_ev:
             #    self._last_mono_value = value
             #    self.epugap.set(self.gap(value + self._flyer_gap_lead, self._flyer_pol, False))
             time.sleep(self._time_resolution)
@@ -413,9 +526,16 @@ class EnPos(PseudoPositioner):
         return completion_status
 
     def describe_collect(self):
-        dd = dict({"energy_readback": {'source': self.monoen.readback.pvname, 'dtype': 'number', 'shape': []}})
+        dd = dict(
+            {
+                "energy_readback": {
+                    "source": self.monoen.readback.pvname,
+                    "dtype": "number",
+                    "shape": [],
+                }
+            }
+        )
         return {"energy_readback_monitor": dd}
-
 
     # end class methods, begin internal methods
 
@@ -428,72 +548,205 @@ class EnPos(PseudoPositioner):
         configpath=pathlib.Path(__file__).parent.absolute() / "config",
         **kwargs,
     ):
-        self.gap_fitnew = np.array([[-2.02817540e+03,  3.02264723e+02, -1.78252111e+00,
-                                        7.43668353e-03, -1.91232012e-05,  2.51973358e-08,
-                                        4.79962799e-12, -8.29186995e-14,  1.57617047e-16,
-                                        -1.59186547e-19,  9.43016130e-23, -3.09532281e-26,
-                                        4.36145287e-30],
-                                    [ 4.03257973e-01, -1.16153798e-02,  1.42259540e-04,
-                                        -9.21569724e-07,  3.64833617e-09, -9.41596905e-12,
-                                        1.63464324e-14, -1.92640661e-17,  1.52209377e-20,
-                                        -7.72874330e-24,  2.28187017e-27, -2.98088495e-31,
-                                        0.00000000e+00],
-                                    [ 4.56475603e-05, -4.07999403e-07,  1.18075497e-09,
-                                        -2.87363757e-12,  3.75535610e-15,  3.29862492e-18,
-                                        -1.94014184e-20,  2.74619195e-23, -1.83395988e-26,
-                                        5.77828602e-30, -6.21442519e-34,  0.00000000e+00,
-                                        0.00000000e+00],
-                                    [-5.25493975e-08,  9.13848518e-11, -8.89125498e-14,
-                                        -7.70071244e-17,  1.56845096e-19,  2.27044971e-22,
-                                        -3.84069721e-25,  1.07113860e-28,  6.45500669e-32,
-                                        -3.56486225e-35,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00],
-                                    [ 1.69412943e-11, -1.72741103e-14,  2.32736978e-17,
-                                        -1.27270356e-20, -2.28179895e-23,  1.64992858e-26,
-                                        5.41608428e-30, -6.86000848e-33,  2.31195976e-36,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00],
-                                    [-3.28740709e-15,  1.72993353e-18, -1.95111611e-21,
-                                        2.04503884e-24,  1.86619961e-28, -8.41281283e-31,
-                                        1.99741076e-34, -6.65135708e-38,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00],
-                                    [ 4.12832071e-19, -1.08634915e-22,  9.38953584e-26,
-                                        -9.25160150e-29,  2.47681044e-32,  1.24161680e-35,
-                                        1.18873213e-39,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00],
-                                    [-3.46595227e-23,  3.42794252e-27, -3.81112396e-30,
-                                        1.81952044e-33, -8.72888305e-37, -1.72881705e-40,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00],
-                                    [ 1.97641466e-27,  2.15621764e-32,  1.26835147e-34,
-                                        -8.69314807e-39,  1.16321066e-41,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00],
-                                    [-7.55639549e-32, -5.20717157e-36, -2.61944925e-39,
-                                        -1.53939901e-43,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00],
-                                    [ 1.84709041e-36,  1.46245833e-40,  2.35251768e-44,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00],
-                                    [-2.59793922e-41, -1.36029553e-45,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00],
-                                    [ 1.59420902e-46,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
-                                        0.00000000e+00]])
-        
+        self.gap_fitnew = np.array(
+            [
+                [
+                    -2.02817540e03,
+                    3.02264723e02,
+                    -1.78252111e00,
+                    7.43668353e-03,
+                    -1.91232012e-05,
+                    2.51973358e-08,
+                    4.79962799e-12,
+                    -8.29186995e-14,
+                    1.57617047e-16,
+                    -1.59186547e-19,
+                    9.43016130e-23,
+                    -3.09532281e-26,
+                    4.36145287e-30,
+                ],
+                [
+                    4.03257973e-01,
+                    -1.16153798e-02,
+                    1.42259540e-04,
+                    -9.21569724e-07,
+                    3.64833617e-09,
+                    -9.41596905e-12,
+                    1.63464324e-14,
+                    -1.92640661e-17,
+                    1.52209377e-20,
+                    -7.72874330e-24,
+                    2.28187017e-27,
+                    -2.98088495e-31,
+                    0.00000000e00,
+                ],
+                [
+                    4.56475603e-05,
+                    -4.07999403e-07,
+                    1.18075497e-09,
+                    -2.87363757e-12,
+                    3.75535610e-15,
+                    3.29862492e-18,
+                    -1.94014184e-20,
+                    2.74619195e-23,
+                    -1.83395988e-26,
+                    5.77828602e-30,
+                    -6.21442519e-34,
+                    0.00000000e00,
+                    0.00000000e00,
+                ],
+                [
+                    -5.25493975e-08,
+                    9.13848518e-11,
+                    -8.89125498e-14,
+                    -7.70071244e-17,
+                    1.56845096e-19,
+                    2.27044971e-22,
+                    -3.84069721e-25,
+                    1.07113860e-28,
+                    6.45500669e-32,
+                    -3.56486225e-35,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                ],
+                [
+                    1.69412943e-11,
+                    -1.72741103e-14,
+                    2.32736978e-17,
+                    -1.27270356e-20,
+                    -2.28179895e-23,
+                    1.64992858e-26,
+                    5.41608428e-30,
+                    -6.86000848e-33,
+                    2.31195976e-36,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                ],
+                [
+                    -3.28740709e-15,
+                    1.72993353e-18,
+                    -1.95111611e-21,
+                    2.04503884e-24,
+                    1.86619961e-28,
+                    -8.41281283e-31,
+                    1.99741076e-34,
+                    -6.65135708e-38,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                ],
+                [
+                    4.12832071e-19,
+                    -1.08634915e-22,
+                    9.38953584e-26,
+                    -9.25160150e-29,
+                    2.47681044e-32,
+                    1.24161680e-35,
+                    1.18873213e-39,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                ],
+                [
+                    -3.46595227e-23,
+                    3.42794252e-27,
+                    -3.81112396e-30,
+                    1.81952044e-33,
+                    -8.72888305e-37,
+                    -1.72881705e-40,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                ],
+                [
+                    1.97641466e-27,
+                    2.15621764e-32,
+                    1.26835147e-34,
+                    -8.69314807e-39,
+                    1.16321066e-41,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                ],
+                [
+                    -7.55639549e-32,
+                    -5.20717157e-36,
+                    -2.61944925e-39,
+                    -1.53939901e-43,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                ],
+                [
+                    1.84709041e-36,
+                    1.46245833e-40,
+                    2.35251768e-44,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                ],
+                [
+                    -2.59793922e-41,
+                    -1.36029553e-45,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                ],
+                [
+                    1.59420902e-46,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                    0.00000000e00,
+                ],
+            ]
+        )
 
         # values for the minimum energy as a function of angle polynomial 10th deg
         # 80.934 ± 0.0698
@@ -526,6 +779,7 @@ class EnPos(PseudoPositioner):
         self._flyer_gap_lead = 0.0
         self._time_resolution = self._default_time_resolution
         self._flying = False
+
     """
     def stage(self):
         if self.scanlock.get():
@@ -551,15 +805,15 @@ class EnPos(PseudoPositioner):
         if (pol == -1) or (pol == -0.5):
             encalc = energy
             gap = 6202.6
-            gap += 74.094 * encalc ** 1
-            gap += 0.14654 * encalc ** 2
-            gap += -0.001609 * encalc ** 3
-            gap += 5.443e-06 * encalc ** 4
-            gap += -1.0023e-08 * encalc ** 5
-            gap += 1.1005e-11 * encalc ** 6
-            gap += -7.1779e-15 * encalc ** 7
-            gap += 2.5652e-18 * encalc ** 8
-            gap += -3.86e-22 * encalc ** 9
+            gap += 74.094 * encalc**1
+            gap += 0.14654 * encalc**2
+            gap += -0.001609 * encalc**3
+            gap += 5.443e-06 * encalc**4
+            gap += -1.0023e-08 * encalc**5
+            gap += 1.1005e-11 * encalc**6
+            gap += -7.1779e-15 * encalc**7
+            gap += 2.5652e-18 * encalc**8
+            gap += -3.86e-22 * encalc**9
 
             return max(14000.0, min(100000.0, gap)) + self.offset_gap.get()
         elif 0 <= pol <= 90:
@@ -574,8 +828,8 @@ class EnPos(PseudoPositioner):
             )
         else:
             return np.nan
-    
-    def epu_gap(self, en, pol ):
+
+    def epu_gap(self, en, pol):
         """
         calculate the epu gap from the energy and polarization, using a 2D polynomial fit
         @param en: energy (valid between ~70 and 1300
@@ -583,11 +837,11 @@ class EnPos(PseudoPositioner):
         @return: gap in microns
         """
         y = float(en)
-        x = float(self.phase(en,pol))
+        x = float(self.phase(en, pol))
         z = 0.0
         for i in np.arange(self.gap_fitnew.shape[0]):
             for j in np.arange(self.gap_fitnew.shape[1]):
-                z += self.gap_fitnew[j, i] * (x ** j) * (y ** i)
+                z += self.gap_fitnew[j, i] * (x**j) * (y**i)
         return z
 
     def phase(self, en, pol, sim=0):
@@ -723,4 +977,3 @@ def base_grating_to_rsoxs(mono_en, en):
     yield from psh4.open()
     print("the grating is now at RSoXS 250 l/mm with low higher order")
     return 1
-
